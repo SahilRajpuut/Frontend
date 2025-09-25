@@ -1,135 +1,578 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+// src/components/Dashboard.jsx
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Search, Home, Video, Inbox, Crown, Plus, FileText, 
   ChevronDown, Grid, List, Bell, Users, Share2, MoreHorizontal,
-  FolderPlus, Sparkles
+  FolderPlus, Sparkles, Wifi, WifiOff, Loader2, X, Folder,
+  HelpCircle, Trash2, ChevronRight, Edit3, Move, User
 } from 'lucide-react';
+
+// Import hooks
+import { useNotes } from '../hooks/useNotes';
+import { useWebSocket } from '../hooks/useWebSocket';
+
+// Create Modal Component
+const CreateModal = ({ isOpen, onClose, onCreateJournal, onCreateFolder }) => {
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <motion.div
+          className="bg-gray-900 rounded-xl p-6 border border-gray-800 min-w-[300px]"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">Create New</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                onCreateJournal();
+                onClose();
+              }}
+              className="w-full flex items-center space-x-3 p-4 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <FileText className="w-6 h-6 text-purple-400" />
+              <div className="text-left">
+                <div className="font-medium text-white">Journal</div>
+                <div className="text-sm text-gray-400">Create a new journal page</div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => {
+                onCreateFolder();
+                onClose();
+              }}
+              className="w-full flex items-center space-x-3 p-4 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <Folder className="w-6 h-6 text-blue-400" />
+              <div className="text-left">
+                <div className="font-medium text-white">Folder</div>
+                <div className="text-sm text-gray-400">Organize your pages</div>
+              </div>
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+};
+
+// Page Actions Dropdown Component
+const PageActionsDropdown = ({ isOpen, onClose, onRename, onMove, onTrash, position }) => {
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-40" onClick={onClose}>
+        <motion.div
+          className="absolute bg-gray-900 border border-gray-800 rounded-lg shadow-xl py-2 min-w-[160px]"
+          style={{ 
+            left: position.x, 
+            top: position.y,
+            transform: 'translateY(-100%)'
+          }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={onRename}
+            className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-gray-800 text-left transition-colors"
+          >
+            <Edit3 className="w-4 h-4 text-gray-400" />
+            <span className="text-white">Rename</span>
+          </button>
+          
+          <button
+            onClick={onMove}
+            className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-gray-800 text-left transition-colors"
+          >
+            <Move className="w-4 h-4 text-gray-400" />
+            <span className="text-white">Move to</span>
+          </button>
+          
+          <button
+            onClick={onTrash}
+            className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-gray-800 text-left transition-colors"
+          >
+            <Trash2 className="w-4 h-4 text-red-400" />
+            <span className="text-red-400">Move to Trash</span>
+          </button>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+};
+
+// Upgrade Modal Component
+const UpgradeModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  const plans = [
+    {
+      name: 'NoteFlow Lite',
+      price: '₹149',
+      period: 'Per month',
+      features: [
+        'Unlimited journals and chats',
+        '3 image generations',
+        '1 video generation / day',
+        '2 notes transcriptions / day',
+        '2 flashcard & practice problems / day',
+        '5 AI grading sessions / week',
+        '7 day version history'
+      ],
+      buttonText: 'Get Lite',
+      buttonColor: 'from-purple-600 to-purple-700',
+      popular: false
+    },
+    {
+      name: 'NoteFlow Plus',
+      price: '₹499',
+      period: 'Per month',
+      features: [
+        'Unlimited journals and chats',
+        'Unlimited image generations',
+        '3 video generations / day',
+        '5 notes transcriptions / day',
+        '5 flashcard & practice problems / day',
+        '5 AI grading sessions / week',
+        '30 day version history',
+        'Video Vault'
+      ],
+      buttonText: 'Get Plus',
+      buttonColor: 'from-blue-600 to-blue-700',
+      popular: true
+    },
+    {
+      name: 'NoteFlow Max',
+      price: '₹999',
+      period: 'Per month',
+      features: [
+        'Real-time, proactive AI tutor',
+        'Unlimited image & video generations',
+        'Unlimited notes transcriptions',
+        'Unlimited flashcard & practice problems',
+        'Unlimited AI grading sessions',
+        'Unlimited version history'
+      ],
+      buttonText: 'Get Max',
+      buttonColor: 'from-green-600 to-green-700',
+      popular: false
+    }
+  ];
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <motion.div
+          className="bg-gray-900 rounded-xl border border-gray-800 max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+        >
+          <div className="p-6 border-b border-gray-800">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">Choose Your Plan</h2>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid md:grid-cols-3 gap-6">
+              {plans.map((plan, index) => (
+                <div
+                  key={plan.name}
+                  className={`bg-gray-800 rounded-xl p-6 border relative ${
+                    plan.popular ? 'border-blue-500' : 'border-gray-700'
+                  }`}
+                >
+                  {plan.popular && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <span className="bg-blue-500 text-white text-sm px-4 py-1 rounded-full font-medium">
+                        Most Popular
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+                    <div className="text-3xl font-bold text-white mb-1">{plan.price}</div>
+                    <div className="text-gray-400">{plan.period}</div>
+                  </div>
+                  
+                  <ul className="space-y-3 mb-8">
+                    {plan.features.map((feature, idx) => (
+                      <li key={idx} className="flex items-start space-x-2">
+                        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                        </div>
+                        <span className="text-gray-300 text-sm">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  
+                  <button
+                    className={`w-full py-3 px-4 rounded-xl font-semibold text-white transition-all bg-gradient-to-r ${plan.buttonColor} hover:opacity-90`}
+                  >
+                    {plan.buttonText}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+};
 
 const Dashboard = ({ onOpenPage, user }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [activeTab, setActiveTab] = useState('all');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [isPagesDropdownOpen, setIsPagesDropdownOpen] = useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [pageActionsDropdown, setPageActionsDropdown] = useState({ isOpen: false, pageId: null, position: { x: 0, y: 0 } });
   
-  const [journals] = useState([
-    { id: '1', title: 'Physics Notes', content: 'Quantum mechanics and thermodynamics...', date: 'Oct 15, 2024', shared: false },
-    { id: '2', title: 'Math Studies', content: 'Calculus and linear algebra concepts...', date: 'Oct 12, 2024', shared: true },
-    { id: '3', title: 'AI Research', content: 'Machine learning algorithms and neural networks...', date: 'Oct 10, 2024', shared: false },
-  ]);
+  // Use hooks for data management
+  const { 
+    notes: journals, 
+    loading, 
+    error, 
+    searchNotes, 
+    refetch,
+    createNote
+  } = useNotes();
+  
+  const { 
+    connected: wsConnected, 
+    aiSuggestions 
+  } = useWebSocket();
 
   const sidebarItems = [
     { icon: Home, label: 'Home', key: 'home', active: true },
     { icon: Video, label: 'Video Vault', key: 'videos' },
-    { icon: Inbox, label: 'Inbox', key: 'inbox', badge: 3 },
+    { icon: Inbox, label: 'Inbox', key: 'inbox' },
   ];
 
+  // Handle search with debouncing
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        handleSearch(searchQuery);
+      } else {
+        refetch();
+      }
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
+
+  const handleSearch = async (query) => {
+    if (query.trim()) {
+      await searchNotes(query);
+    } else {
+      refetch();
+    }
+  };
+
+  const handleCreateNote = async () => {
+    try {
+      const newNote = await createNote({
+        title: 'New Journal',
+        content: '',
+        shared: false
+      });
+      
+      if (newNote.success) {
+        onOpenPage(newNote.note.id);
+      } else {
+        onOpenPage('new');
+      }
+    } catch (error) {
+      console.error('Failed to create note:', error);
+      onOpenPage('new');
+    }
+  };
+
+  const handleCreateFolder = () => {
+    // Implement folder creation logic
+    console.log('Create folder');
+  };
+
+  const handlePageActions = (event, pageId, action) => {
+    event.stopPropagation();
+    
+    if (action === 'menu') {
+      const rect = event.currentTarget.getBoundingClientRect();
+      setPageActionsDropdown({
+        isOpen: true,
+        pageId,
+        position: {
+          x: rect.left,
+          y: rect.top
+        }
+      });
+    }
+  };
+
+  const handlePageAction = (action, pageId) => {
+    setPageActionsDropdown({ isOpen: false, pageId: null, position: { x: 0, y: 0 } });
+    
+    switch (action) {
+      case 'rename':
+        // Implement rename logic
+        console.log('Rename page:', pageId);
+        break;
+      case 'move':
+        // Implement move logic
+        console.log('Move page:', pageId);
+        break;
+      case 'trash':
+        // Implement trash logic
+        console.log('Move to trash:', pageId);
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Filter notes based on active tab
+  const filteredJournals = journals.filter(journal => {
+    if (activeTab === 'shared') return journal.shared;
+    if (activeTab === 'owned') return !journal.shared;
+    return true; // 'all'
+  });
+
   return (
-    <div className="min-h-screen flex bg-black">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-black flex">
+      {/* Sidebar - 20% width */}
       <motion.div 
-        className="w-72 bg-black border-r border-gray-900 flex flex-col"
+        className="w-1/5 bg-black border-r border-gray-900 flex flex-col h-screen fixed left-0 top-0 z-10"
         initial={{ x: -50, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
       >
-        {/* User Profile */}
-        <div className="p-6 border-b border-gray-900">
+        {/* User Profile - Top */}
+        <div className="p-4 border-b border-gray-900">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-lg font-bold text-white">
+            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-sm font-bold text-white">
               {user?.name?.[0] || 'U'}
             </div>
-            <div className="flex-1">
-              <div className="flex items-center space-x-2">
-                <span className="font-semibold text-white">Hi, {user?.name || 'User'}</span>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-400">{user?.plan || 'Free'}</span>
-                <Crown className="w-3 h-3 text-yellow-400" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-1">
+                <span className="font-semibold text-white text-sm truncate">Hi, {user?.name || 'User'}</span>
               </div>
             </div>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="px-2 py-1 bg-teal-500 hover:bg-teal-600 rounded-md text-white text-xs font-medium transition-colors flex items-center space-x-1"
+            >
+              <span>Create</span>
+              <Plus className="w-3 h-3" />
+            </button>
           </div>
         </div>
 
         {/* Search */}
-        <div className="p-4">
+        <div className="p-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
             <input
               type="text"
               placeholder="Search journals..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all placeholder-gray-500 text-white"
+              className="w-full pl-7 pr-3 py-2 bg-gray-900 border border-gray-800 rounded-lg focus:ring-1 focus:ring-purple-500 focus:outline-none transition-all placeholder-gray-500 text-white text-sm"
             />
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-4">
+        {/* Navigation - Fixed height, no scrolling */}
+        <div className="flex-1 px-3 overflow-hidden">
           {sidebarItems.map((item) => (
             <motion.button
               key={item.key}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 mb-2 ${
+              className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 mb-1 text-sm ${
                 item.active 
                   ? 'bg-gray-900 border border-purple-500/50 shadow-lg' 
                   : 'hover:bg-gray-900'
               }`}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
             >
-              <item.icon className={`w-5 h-5 ${item.active ? 'text-purple-400' : 'text-gray-400'}`} />
-              <span className={`font-medium ${item.active ? 'text-white' : 'text-gray-300'}`}>{item.label}</span>
+              <item.icon className={`w-4 h-4 ${item.active ? 'text-purple-400' : 'text-gray-400'}`} />
+              <span className={`font-medium truncate ${item.active ? 'text-white' : 'text-gray-300'}`}>{item.label}</span>
               {item.badge && (
-                <span className="ml-auto bg-purple-500 text-xs px-2 py-1 rounded-full font-semibold text-white">
+                <span className="ml-auto bg-purple-500 text-xs px-1.5 py-0.5 rounded-full font-semibold text-white">
                   {item.badge}
                 </span>
               )}
             </motion.button>
           ))}
 
-          {/* Your Journals Section */}
-          <div className="mt-8 mb-4">
-            <div className="flex items-center justify-between px-4 py-2 text-sm font-semibold text-gray-400">
-              <span>Your Journals</span>
-              <button 
-                onClick={() => onOpenPage('new')}
-                className="hover:text-white transition-colors"
+          {/* Your Pages Section */}
+          <div className="mt-6 mb-3 relative">
+            <div className="flex items-center justify-between px-3 py-1 text-xs font-semibold text-gray-400">
+              <button
+                onClick={() => setIsPagesDropdownOpen(!isPagesDropdownOpen)}
+                className="flex items-center space-x-1 hover:text-white transition-colors"
               >
-                <Plus className="w-4 h-4" />
+                <span>Your Pages</span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${isPagesDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
             </div>
-            {journals.slice(0, 3).map((journal) => (
-              <motion.button
-                key={journal.id}
-                onClick={() => onOpenPage(journal.id)}
-                className="w-full flex items-center space-x-3 px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors text-left"
-                whileHover={{ scale: 1.02 }}
-              >
-                <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <span className="text-sm text-gray-300 truncate">{journal.title}</span>
-              </motion.button>
-            ))}
-          </div>
-        </nav>
 
-        {/* Upgrade Section */}
-        <div className="p-4 border-t border-gray-900">
-          <motion.button
-            className="w-full p-4 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl hover:from-amber-500 hover:to-orange-500 transition-all duration-300 flex items-center justify-center space-x-2 font-semibold shadow-lg text-white border border-amber-500/30"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            {/* Pages Dropdown */}
+            <AnimatePresence>
+              {isPagesDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <button
+                    onClick={handleCreateNote}
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-md hover:bg-gray-900 transition-colors text-left text-teal-400 hover:text-teal-300"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span className="text-xs font-medium">New Page</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {loading ? (
+              <div className="px-3 py-1.5">
+                <div className="flex items-center space-x-1.5 text-gray-400">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span className="text-xs">Loading...</span>
+                </div>
+              </div>
+            ) : (
+              // Show only first 3 journals in sidebar, no scrolling
+              journals.slice(0, 3).map((journal) => (
+                <motion.div
+                  key={journal.id}
+                  className="flex items-center group"
+                  whileHover={{ scale: 1.01 }}
+                >
+                  <button
+                    onClick={() => onOpenPage(journal.id)}
+                    className="flex-1 flex items-center space-x-2 px-3 py-1.5 rounded-md hover:bg-gray-900 transition-colors text-left min-w-0"
+                  >
+                    <FileText className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs text-gray-300 truncate">{journal.title}</span>
+                  </button>
+                  
+                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity pr-1">
+                    <button
+                      onClick={handleCreateNote}
+                      className="p-0.5 hover:bg-gray-800 rounded"
+                    >
+                      <Plus className="w-2.5 h-2.5 text-gray-400" />
+                    </button>
+                    <button
+                      onClick={(e) => handlePageActions(e, journal.id, 'menu')}
+                      className="p-0.5 hover:bg-gray-800 rounded"
+                    >
+                      <MoreHorizontal className="w-2.5 h-2.5 text-gray-400" />
+                    </button>
+                    <ChevronRight className="w-2.5 h-2.5 text-gray-400 ml-0.5" />
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Section - Fixed at bottom with proper spacing */}
+        <div className="p-3 border-t border-gray-900 space-y-1 bg-black flex-shrink-0">
+          <button
+            onClick={() => setIsUpgradeModalOpen(true)}
+            className="w-full flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-900 transition-colors text-left"
           >
-            <Crown className="w-5 h-5" />
-            <span>Upgrade to Pro</span>
-          </motion.button>
+            <Crown className="w-4 h-4 text-teal-400" />
+            <span className="text-white font-medium text-sm">Upgrade</span>
+          </button>
+          
+          <button className="w-full flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-900 transition-colors text-left">
+            <HelpCircle className="w-4 h-4 text-gray-400" />
+            <span className="text-gray-300 text-sm">Quick Guide</span>
+          </button>
+          
+          <button className="w-full flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-900 transition-colors text-left">
+            <Trash2 className="w-4 h-4 text-gray-400" />
+            <span className="text-gray-300 text-sm">Trash</span>
+          </button>
+          
+          {/* User Profile - Bottom */}
+          <div className="relative pb-1">
+            <button
+              onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+              className="w-full flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-900 transition-colors text-left"
+            >
+              <User className="w-4 h-4 text-gray-400" />
+              <div className="flex-1 min-w-0">
+                <span className="text-white font-medium text-sm truncate block">{user?.name || 'User'}</span>
+                <div className="text-xs text-gray-400">{user?.plan || 'Free'}</div>
+              </div>
+              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {/* User Dropdown */}
+            <AnimatePresence>
+              {isUserDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute bottom-full left-0 right-0 mb-1 bg-gray-900 border border-gray-800 rounded-lg shadow-xl py-1"
+                >
+                  <div className="px-3 py-1.5 border-b border-gray-800">
+                    <div className="text-xs text-white font-medium truncate">{user?.email || 'user@example.com'}</div>
+                    <div className="text-xs text-gray-400">Last saved 23 days ago</div>
+                  </div>
+                  <button className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">
+                    Profile Settings
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">
+                    Sign Out
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </motion.div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-black">
+      {/* Main Content - 80% width */}
+      <div className="w-4/5 ml-[20%] min-h-screen bg-black">
         {/* Header */}
         <motion.header 
-          className="bg-black border-b border-gray-900"
+          className="bg-black border-b border-gray-900 sticky top-0 z-5"
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
         >
@@ -183,14 +626,47 @@ const Dashboard = ({ onOpenPage, user }) => {
 
               <button className="p-3 bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors border border-gray-800 relative">
                 <Bell className="w-5 h-5 text-white" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                {aiSuggestions.length > 0 && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                )}
               </button>
             </div>
           </div>
         </motion.header>
 
         {/* Content */}
-        <div className="flex-1 p-8 bg-black">
+        <div className="p-8 min-h-screen overflow-y-auto">
+          {/* Error State */}
+          {error && (
+            <div className="bg-red-900/20 border border-red-500 rounded-xl p-4 mb-6">
+              <p className="text-red-400">{error}</p>
+              <button 
+                onClick={refetch}
+                className="text-sm text-purple-400 hover:text-purple-300 mt-2"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {/* AI Suggestions */}
+          {aiSuggestions.length > 0 && (
+            <motion.div
+              className="mb-8 p-4 bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-xl border border-purple-500/20"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <h3 className="text-lg font-semibold text-white mb-3">AI Suggestions</h3>
+              <div className="space-y-2">
+                {aiSuggestions.slice(0, 3).map((suggestion, index) => (
+                  <div key={index} className="text-sm text-gray-300 bg-black/20 rounded-lg p-3">
+                    {suggestion.text || suggestion.content}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
           {/* Folders Section */}
           <motion.section 
             className="mb-12"
@@ -207,6 +683,7 @@ const Dashboard = ({ onOpenPage, user }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {/* Create Folder */}
               <motion.button
+                onClick={() => setIsCreateModalOpen(true)}
                 className="h-40 bg-gray-900 border-2 border-dashed border-purple-500/50 rounded-2xl hover:border-purple-500 hover:bg-gray-800 transition-all duration-300 flex flex-col items-center justify-center space-y-3 group"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -228,99 +705,112 @@ const Dashboard = ({ onOpenPage, user }) => {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
                 <span>Journals</span>
-                <span className="bg-gray-900 text-sm px-3 py-1 rounded-full border border-gray-800">{journals.length}</span>
+                <span className="bg-gray-900 text-sm px-3 py-1 rounded-full border border-gray-800">
+                  {filteredJournals.length}
+                </span>
               </h2>
             </div>
 
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' : 'space-y-4'}>
-              {/* Create Journal */}
-              <motion.button
-                onClick={() => onOpenPage('new')}
-                className={`bg-gray-900 border-2 border-dashed border-purple-500/50 rounded-2xl hover:border-purple-500 hover:bg-gray-800 transition-all duration-300 flex items-center justify-center group ${
-                  viewMode === 'grid' ? 'h-56 flex-col space-y-4' : 'h-20 space-x-4 px-6'
-                }`}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <FileText className="w-10 h-10 text-gray-400 group-hover:text-purple-400 transition-colors" />
-                <span className="text-gray-400 group-hover:text-purple-400 transition-colors font-medium">
-                  Create Journal
-                </span>
-              </motion.button>
+            {/* Loading State */}
+            {loading && (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
+                <p className="text-gray-400 mt-2">Loading your journals...</p>
+              </div>
+            )}
 
-              {/* Existing Journals */}
-              {journals.map((journal, index) => (
-                <motion.div
-                  key={journal.id}
-                  className={`bg-gray-900 rounded-2xl hover:bg-gray-800 transition-all duration-300 cursor-pointer group border border-gray-800 ${
-                    viewMode === 'grid' ? 'h-56 p-6' : 'h-20 px-6 flex items-center'
+            {/* Content Grid/List */}
+            {!loading && (
+              <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' : 'space-y-4'}>
+                {/* Create Journal */}
+                <motion.button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className={`bg-gray-900 border-2 border-dashed border-purple-500/50 rounded-2xl hover:border-purple-500 hover:bg-gray-800 transition-all duration-300 flex items-center justify-center group ${
+                    viewMode === 'grid' ? 'h-56 flex-col space-y-4' : 'h-20 space-x-4 px-6'
                   }`}
                   whileHover={{ scale: 1.02 }}
-                  onClick={() => onOpenPage(journal.id)}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  {viewMode === 'grid' ? (
-                    <div className="h-full flex flex-col">
-                      <div className="flex-1 mb-4">
-                        <div className="h-24 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl mb-4 flex items-center justify-center border border-purple-500/20">
-                          <FileText className="w-8 h-8 text-purple-400" />
+                  <FileText className="w-10 h-10 text-gray-400 group-hover:text-purple-400 transition-colors" />
+                  <span className="text-gray-400 group-hover:text-purple-400 transition-colors font-medium">
+                    Create Journal
+                  </span>
+                </motion.button>
+
+                {/* Existing Journals */}
+                {filteredJournals.map((journal, index) => (
+                  <motion.div
+                    key={journal.id}
+                    className={`bg-gray-900 rounded-2xl hover:bg-gray-800 transition-all duration-300 cursor-pointer group border border-gray-800 ${
+                      viewMode === 'grid' ? 'h-56 p-6' : 'h-20 px-6 flex items-center'
+                    }`}
+                    whileHover={{ scale: 1.02 }}
+                    onClick={() => onOpenPage(journal.id)}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    {viewMode === 'grid' ? (
+                      <div className="h-full flex flex-col">
+                        <div className="flex-1 mb-4">
+                          <div className="h-24 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl mb-4 flex items-center justify-center border border-purple-500/20">
+                            <FileText className="w-8 h-8 text-purple-400" />
+                          </div>
+                          <h3 className="font-semibold text-white mb-2 truncate text-lg">{journal.title}</h3>
+                          <p className="text-sm text-gray-400 leading-relaxed overflow-hidden" style={{
+                            display: '-webkit-box',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: 2
+                          }}>{journal.content}</p>
                         </div>
-                        <h3 className="font-semibold text-white mb-2 truncate text-lg">{journal.title}</h3>
-                        <p className="text-sm text-gray-400 leading-relaxed overflow-hidden" style={{
-                          display: '-webkit-box',
-                          WebkitBoxOrient: 'vertical',
-                          WebkitLineClamp: 2
-                        }}>{journal.content}</p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {journal.shared && (
+                              <div className="flex items-center space-x-1">
+                                <Users className="w-3 h-3 text-green-400" />
+                                <span className="text-xs text-green-400">Shared</span>
+                              </div>
+                            )}
+                            <span className="text-xs text-gray-500">{journal.date}</span>
+                          </div>
+                          <button
+                            onClick={(e) => handlePageActions(e, journal.id, 'menu')}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-gray-800 rounded-lg"
+                          >
+                            <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          {journal.shared && (
-                            <div className="flex items-center space-x-1">
-                              <Users className="w-3 h-3 text-green-400" />
-                              <span className="text-xs text-green-400">Shared</span>
-                            </div>
-                          )}
-                          <span className="text-xs text-gray-500">{journal.date}</span>
+                    ) : (
+                      <div className="flex items-center space-x-4 w-full">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-purple-500/20">
+                          <FileText className="w-5 h-5 text-purple-400" />
                         </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white">{journal.title}</h3>
+                          <p className="text-sm text-gray-400">{journal.date}</p>
+                        </div>
+                        {journal.shared && (
+                          <div className="flex items-center space-x-1">
+                            <Users className="w-4 h-4 text-green-400" />
+                            <span className="text-sm text-green-400">Shared</span>
+                          </div>
+                        )}
                         <button
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => handlePageActions(e, journal.id, 'menu')}
                           className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-gray-800 rounded-lg"
                         >
-                          <Share2 className="w-4 h-4 text-gray-400" />
+                          <MoreHorizontal className="w-5 h-5 text-gray-400" />
                         </button>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-4 w-full">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-purple-500/20">
-                        <FileText className="w-5 h-5 text-purple-400" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-white">{journal.title}</h3>
-                        <p className="text-sm text-gray-400">{journal.date}</p>
-                      </div>
-                      {journal.shared && (
-                        <div className="flex items-center space-x-1">
-                          <Users className="w-4 h-4 text-green-400" />
-                          <span className="text-sm text-green-400">Shared</span>
-                        </div>
-                      )}
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-gray-800 rounded-lg"
-                      >
-                        <MoreHorizontal className="w-5 h-5 text-gray-400" />
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            )}
 
             {/* Empty State */}
-            {journals.length === 0 && (
+            {!loading && filteredJournals.length === 0 && (
               <motion.div
                 className="text-center py-16"
                 initial={{ opacity: 0 }}
@@ -331,7 +821,7 @@ const Dashboard = ({ onOpenPage, user }) => {
                 <h3 className="text-2xl font-bold text-gray-300 mb-3">Ready to start learning?</h3>
                 <p className="text-gray-400 mb-8 text-lg">Create your first journal and let our AI tutor help you learn faster</p>
                 <button
-                  onClick={() => onOpenPage('new')}
+                  onClick={() => setIsCreateModalOpen(true)}
                   className="px-8 py-4 bg-black border-2 border-purple-600 rounded-xl hover:bg-purple-600 transition-all duration-300 transform hover:scale-105 font-semibold text-lg shadow-lg text-white"
                 >
                   Create Your First Journal
@@ -341,6 +831,28 @@ const Dashboard = ({ onOpenPage, user }) => {
           </motion.section>
         </div>
       </div>
+
+      {/* Modals */}
+      <CreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreateJournal={handleCreateNote}
+        onCreateFolder={handleCreateFolder}
+      />
+
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+      />
+
+      <PageActionsDropdown
+        isOpen={pageActionsDropdown.isOpen}
+        onClose={() => setPageActionsDropdown({ isOpen: false, pageId: null, position: { x: 0, y: 0 } })}
+        onRename={() => handlePageAction('rename', pageActionsDropdown.pageId)}
+        onMove={() => handlePageAction('move', pageActionsDropdown.pageId)}
+        onTrash={() => handlePageAction('trash', pageActionsDropdown.pageId)}
+        position={pageActionsDropdown.position}
+      />
     </div>
   );
 };

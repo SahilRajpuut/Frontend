@@ -231,99 +231,208 @@ const LandingPage = ({ onGetStarted }) => {
     },
   ];
 
-  // Hand-drawn style SVG illustrations
-  const HandDrawnIllustrations = () => (
-    <div className="absolute inset-0 pointer-events-none">
-      {/* Physics Formula E=mc² */}
-      <div
-        className="absolute top-20 left-10 text-purple-400 opacity-70"
-      >
-        <svg width="100" height="50" viewBox="0 0 100 50" className="hand-drawn">
-          <text x="5" y="30" fontSize="22" fontFamily="Comic Sans MS, cursive" fill="currentColor" transform="rotate(-5)">
-            E=mc²
-          </text>
-        </svg>
-      </div>
-
-      {/* Chemistry - Molecular Structure (H2O) */}
-      <div
-        className="absolute top-32 right-20 text-blue-400 opacity-60"
-      >
-        <svg width="80" height="60" viewBox="0 0 80 60" className="hand-drawn">
-          {/* H2O molecule structure */}
-          <circle cx="40" cy="30" r="8" stroke="currentColor" strokeWidth="2" fill="none" />
-          <circle cx="20" cy="20" r="5" stroke="currentColor" strokeWidth="2" fill="none" />
-          <circle cx="20" cy="40" r="5" stroke="currentColor" strokeWidth="2" fill="none" />
-          <line x1="32" y1="25" x2="25" y2="22" stroke="currentColor" strokeWidth="2" />
-          <line x1="32" y1="35" x2="25" y2="38" stroke="currentColor" strokeWidth="2" />
-          <text x="37" y="35" fontSize="10" fill="currentColor">O</text>
-          <text x="17" y="25" fontSize="8" fill="currentColor">H</text>
-          <text x="17" y="45" fontSize="8" fill="currentColor">H</text>
-        </svg>
-      </div>
-
-      {/* Math - Pythagorean Theorem */}
-      <div
-        className="absolute top-16 right-1/3 text-green-400 opacity-60"
-      >
-        <svg width="80" height="70" viewBox="0 0 80 70" className="hand-drawn">
-          {/* Right triangle */}
-          <path d="M20 50 L50 50 L50 20 Z" stroke="currentColor" strokeWidth="2" fill="none" />
-          {/* Right angle indicator */}
-          <path d="M45 50 L45 45 L50 45" stroke="currentColor" strokeWidth="1" fill="none" />
-          <text x="10" y="40" fontSize="12" fill="currentColor">a</text>
-          <text x="55" y="38" fontSize="12" fill="currentColor">b</text>
-          <text x="30" y="15" fontSize="12" fill="currentColor">c</text>
-          <text x="15" y="65" fontSize="10" fill="currentColor">a²+b²=c²</text>
-        </svg>
-      </div>
-
-      {/* Physics - Force Formula (F=ma) */}
-      <div
-        className="absolute top-40 right-10 text-yellow-400 opacity-50"
-      >
-        <svg width="70" height="40" viewBox="0 0 70 40" className="hand-drawn">
-          <text x="5" y="25" fontSize="18" fontFamily="Comic Sans MS, cursive" fill="currentColor" transform="rotate(5)">
-            F=ma
-          </text>
-        </svg>
-      </div>
-
-      {/* Chemistry - Benzene Ring */}
-      <div
-        className="absolute top-52 left-1/4 text-cyan-400 opacity-50"
-      >
-        <svg width="60" height="60" viewBox="0 0 60 60" className="hand-drawn">
-          {/* Benzene hexagon */}
-          <path d="M30 10 L45 20 L45 40 L30 50 L15 40 L15 20 Z" stroke="currentColor" strokeWidth="2" fill="none" />
-          {/* Inner circle for aromatic system */}
-          <circle cx="30" cy="30" r="10" stroke="currentColor" strokeWidth="1" fill="none" strokeDasharray="3,2" />
-          <text x="25" y="35" fontSize="8" fill="currentColor">C₆H₆</text>
-        </svg>
-      </div>
-
-      {/* Math - Calculus Integral */}
-      <div
-        className="absolute top-24 left-1/3 text-red-400 opacity-50"
-      >
-        <svg width="70" height="50" viewBox="0 0 70 50" className="hand-drawn">
-          <text x="5" y="35" fontSize="20" fontFamily="serif" fill="currentColor">∫</text>
-          <text x="25" y="30" fontSize="14" fill="currentColor">f(x)dx</text>
-        </svg>
-      </div>
-
-      {/* Physics - Wavelength */}
-      <div
-        className="absolute top-8 left-1/2 text-indigo-400 opacity-40"
-      >
-        <svg width="90" height="40" viewBox="0 0 90 40" className="hand-drawn">
-          {/* Sine wave */}
-          <path d="M5 20 Q15 5 25 20 T45 20 T65 20 T85 20" stroke="currentColor" strokeWidth="2" fill="none" />
-          <text x="35" y="35" fontSize="10" fill="currentColor">λ = c/f</text>
-        </svg>
-      </div>
+  // Hand-drawn style SVG illustrations - Enhanced with smoother hover effects
+const HandDrawnIllustrations = () => (
+  <div className="absolute inset-0 pointer-events-none">
+    {/* Physics Formula E=mc² - Enhanced */}
+    <div className="absolute top-16 left-8 text-purple-400 opacity-80 pointer-events-auto">
+      <svg width="160" height="80" viewBox="0 0 160 80" className="hand-drawn drop-shadow-lg transition-all duration-500 ease-out hover:scale-150 hover:z-50 hover:opacity-95">
+        <defs>
+          <filter id="glow-purple">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        <text x="10" y="45" fontSize="36" fontFamily="Comic Sans MS, cursive" fill="currentColor" 
+              transform="rotate(-8)" filter="url(#glow-purple)" fontWeight="bold">
+          E=mc²
+        </text>
+        <circle cx="25" cy="20" r="3" fill="currentColor" opacity="0.6" />
+        <circle cx="135" cy="60" r="2" fill="currentColor" opacity="0.4" />
+      </svg>
     </div>
-  );
+
+    {/* Chemistry - Molecular Structure (H2O) - Enhanced */}
+    <div className="absolute top-20 right-12 text-blue-400 opacity-80 pointer-events-auto">
+      <svg width="140" height="120" viewBox="0 0 140 120" className="hand-drawn drop-shadow-lg transition-all duration-500 ease-out hover:scale-150 hover:z-50 hover:opacity-95">
+        <defs>
+          <filter id="glow-blue">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        {/* H2O molecule structure */}
+        <circle cx="70" cy="60" r="15" stroke="currentColor" strokeWidth="3" fill="rgba(135, 206, 235, 0.1)" 
+                filter="url(#glow-blue)" />
+        <circle cx="35" cy="35" r="10" stroke="currentColor" strokeWidth="3" fill="rgba(135, 206, 235, 0.1)" 
+                filter="url(#glow-blue)" />
+        <circle cx="35" cy="85" r="10" stroke="currentColor" strokeWidth="3" fill="rgba(135, 206, 235, 0.1)" 
+                filter="url(#glow-blue)" />
+        <line x1="55" y1="50" x2="45" y2="42" stroke="currentColor" strokeWidth="4" />
+        <line x1="55" y1="70" x2="45" y2="78" stroke="currentColor" strokeWidth="4" />
+        {/* Floating atoms animation effect */}
+        <circle cx="110" cy="25" r="2" fill="currentColor" opacity="0.5">
+          <animate attributeName="cy" values="25;30;25" dur="3s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="120" cy="95" r="1.5" fill="currentColor" opacity="0.4">
+          <animate attributeName="cy" values="95;90;95" dur="2.5s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+    </div>
+
+    {/* Math - Pythagorean Theorem - Enhanced */}
+    <div className="absolute top-12 right-1/3 text-green-400 opacity-80 pointer-events-auto">
+      <svg width="150" height="140" viewBox="0 0 150 140" className="hand-drawn drop-shadow-lg transition-all duration-500 ease-out hover:scale-150 hover:z-50 hover:opacity-95">
+        <defs>
+          <filter id="glow-green">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        {/* Right triangle */}
+        <path d="M30 90 L90 90 L90 30 Z" stroke="currentColor" strokeWidth="4" 
+              fill="rgba(74, 222, 128, 0.1)" filter="url(#glow-green)" />
+        {/* Right angle indicator */}
+        <path d="M80 90 L80 80 L90 80" stroke="currentColor" strokeWidth="2" fill="none" />
+        {/* Side squares to show a², b², c² */}
+        <path d="M30 90 L30 120 L0 120 L0 90 Z" stroke="currentColor" strokeWidth="2" 
+              fill="rgba(74, 222, 128, 0.2)" strokeDasharray="3,2" />
+        <path d="M90 30 L120 30 L120 0 L90 0 Z" stroke="currentColor" strokeWidth="2" 
+              fill="rgba(74, 222, 128, 0.2)" strokeDasharray="3,2" />
+        <text x="15" y="50" fontSize="20" fill="currentColor" fontWeight="bold">a</text>
+        <text x="100" y="65" fontSize="20" fill="currentColor" fontWeight="bold">b</text>
+        <text x="52" y="25" fontSize="20" fill="currentColor" fontWeight="bold">c</text>
+      </svg>
+    </div>
+
+    {/* Physics - Force Formula (F=ma) - Enhanced */}
+    <div className="absolute top-36 right-8 text-yellow-400 opacity-80 pointer-events-auto">
+      <svg width="120" height="70" viewBox="0 0 120 70" className="hand-drawn drop-shadow-lg transition-all duration-500 ease-out hover:scale-150 hover:z-50 hover:opacity-95">
+        <defs>
+          <filter id="glow-yellow">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        <text x="8" y="40" fontSize="32" fontFamily="Comic Sans MS, cursive" fill="currentColor" 
+              transform="rotate(3)" filter="url(#glow-yellow)" fontWeight="bold">
+          F=ma
+        </text>
+        {/* Force vector arrow */}
+        <path d="M15 55 L45 55 M40 50 L45 55 L40 60" stroke="currentColor" strokeWidth="3" fill="none" />
+      </svg>
+    </div>
+
+    {/* Chemistry - Benzene Ring - Enhanced */}
+    <div className="absolute top-48 left-1/4 text-cyan-400 opacity-80 pointer-events-auto">
+      <svg width="120" height="120" viewBox="0 0 120 120" className="hand-drawn drop-shadow-lg transition-all duration-500 ease-out hover:scale-150 hover:z-50 hover:opacity-95">
+        <defs>
+          <filter id="glow-cyan">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        {/* Benzene hexagon */}
+        <path d="M60 15 L85 30 L85 60 L60 75 L35 60 L35 30 Z" stroke="currentColor" strokeWidth="4" 
+              fill="rgba(34, 211, 238, 0.1)" filter="url(#glow-cyan)" />
+        {/* Inner circle for aromatic system */}
+        <circle cx="60" cy="45" r="18" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="5,3" />
+        {/* Carbon atoms at vertices */}
+        <circle cx="60" cy="15" r="3" fill="currentColor" />
+        <circle cx="85" cy="30" r="3" fill="currentColor" />
+        <circle cx="85" cy="60" r="3" fill="currentColor" />
+        <circle cx="60" cy="75" r="3" fill="currentColor" />
+        <circle cx="35" cy="60" r="3" fill="currentColor" />
+        <circle cx="35" cy="30" r="3" fill="currentColor" />
+      </svg>
+    </div>
+
+    {/* Math - Calculus Integral - Enhanced */}
+    <div className="absolute top-20 left-1/3 text-red-400 opacity-80 pointer-events-auto">
+      <svg width="140" height="100" viewBox="0 0 140 100" className="hand-drawn drop-shadow-lg transition-all duration-500 ease-out hover:scale-150 hover:z-50 hover:opacity-95">
+        <defs>
+          <filter id="glow-red">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        <text x="8" y="60" fontSize="42" fontFamily="serif" fill="currentColor" filter="url(#glow-red)">∫</text>
+        <text x="50" y="50" fontSize="24" fill="currentColor" fontWeight="bold">f(x)dx</text>
+        {/* Function curve */}
+        <path d="M20 80 Q40 20 60 40 Q80 60 100 30" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="2,2" />
+      </svg>
+    </div>
+
+    {/* Physics - Wavelength - Enhanced */}
+    <div className="absolute top-8 left-1/2 text-indigo-400 opacity-80 pointer-events-auto">
+      <svg width="180" height="80" viewBox="0 0 180 80" className="hand-drawn drop-shadow-lg transition-all duration-500 ease-out hover:scale-150 hover:z-50 hover:opacity-95">
+        <defs>
+          <filter id="glow-indigo">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        {/* Sine wave */}
+        <path d="M10 40 Q25 15 40 40 Q55 65 70 40 Q85 15 100 40 Q115 65 130 40 Q145 15 160 40" 
+              stroke="currentColor" strokeWidth="3" fill="none" filter="url(#glow-indigo)" />
+        {/* Wavelength indicators */}
+        <line x1="40" y1="10" x2="40" y2="70" stroke="currentColor" strokeWidth="1" strokeDasharray="2,2" />
+        <line x1="100" y1="10" x2="100" y2="70" stroke="currentColor" strokeWidth="1" strokeDasharray="2,2" />
+        <path d="M40 75 L100 75 M45 70 L40 75 L45 80 M95 70 L100 75 L95 80" 
+              stroke="currentColor" strokeWidth="2" fill="none" />
+        <text x="65" y="74" fontSize="12" fill="currentColor">λ</text>
+      </svg>
+    </div>
+
+    {/* Additional DNA Helix - New Addition */}
+    <div className="absolute top-44 left-12 text-pink-400 opacity-70 pointer-events-auto">
+      <svg width="100" height="140" viewBox="0 0 100 140" className="hand-drawn drop-shadow-lg transition-all duration-500 ease-out hover:scale-150 hover:z-50 hover:opacity-95">
+        <defs>
+          <filter id="glow-pink">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        {/* DNA double helix */}
+        <path d="M30 20 Q20 40 30 60 Q40 80 30 100 Q20 120 30 140" stroke="currentColor" strokeWidth="3" 
+              fill="none" filter="url(#glow-pink)" />
+        <path d="M70 20 Q80 40 70 60 Q60 80 70 100 Q80 120 70 140" stroke="currentColor" strokeWidth="3" 
+              fill="none" filter="url(#glow-pink)" />
+        {/* Base pairs */}
+        <line x1="30" y1="30" x2="70" y2="30" stroke="currentColor" strokeWidth="2" />
+        <line x1="30" y1="50" x2="70" y2="50" stroke="currentColor" strokeWidth="2" />
+        <line x1="30" y1="70" x2="70" y2="70" stroke="currentColor" strokeWidth="2" />
+        <line x1="30" y1="90" x2="70" y2="90" stroke="currentColor" strokeWidth="2" />
+        <line x1="30" y1="110" x2="70" y2="110" stroke="currentColor" strokeWidth="2" />
+      </svg>
+    </div>
+  </div>
+);
+
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-black">
@@ -462,80 +571,126 @@ const LandingPage = ({ onGetStarted }) => {
             <h3 className="text-3xl font-bold text-white mb-12">Choose Your Learning Journey</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-              {/* Pilot Plan */}
-              <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 hover:border-purple-500/50 transition-all duration-300">
-                <h4 className="text-2xl font-bold text-white mb-4">Pilot</h4>
-                <div className="text-4xl font-bold text-purple-400 mb-6">₹149</div>
-                <p className="text-gray-400 mb-6">7-day unlimited trial</p>
-                <ul className="space-y-3 mb-8">
+              {/* NoteFlow Lite */}
+              <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 hover:border-purple-500/50 transition-all duration-300 h-full flex flex-col">
+                <h4 className="text-2xl font-bold text-white mb-4">NoteFlow Lite</h4>
+                <div className="text-4xl font-bold text-purple-400 mb-2">₹149</div>
+                <p className="text-gray-400 mb-6">Per month</p>
+                <ul className="space-y-2 mb-8 text-sm flex-grow">
                   <li className="flex items-center text-gray-300">
-                    <Check className="w-5 h-5 text-green-400 mr-3" />
-                    Full feature access
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    Unlimited journals and chats
                   </li>
                   <li className="flex items-center text-gray-300">
-                    <Check className="w-5 h-5 text-green-400 mr-3" />
-                    Unlimited AI assistance
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    3 image generations
                   </li>
                   <li className="flex items-center text-gray-300">
-                    <Check className="w-5 h-5 text-green-400 mr-3" />
-                    All study tools
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    1 video generation / day
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    2 notes transcriptions / day
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    2 flashcard & practice problems / day
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    5 AI grading sessions / week
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    7 day version history
                   </li>
                 </ul>
-                <button className="w-full py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold text-white transition-colors">
-                  Start Trial
+                <button className="w-full py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold text-white transition-colors mt-auto">
+                  Get Lite
                 </button>
               </div>
 
-              {/* Core Plan */}
-              <div className="bg-gray-900 rounded-2xl p-8 border-2 border-purple-500 relative hover:border-purple-400 transition-all duration-300">
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
+              {/* NoteFlow Plus */}
+              <div className="bg-gray-900 rounded-2xl p-6 border-2 border-blue-500 relative hover:border-blue-400 transition-all duration-300 h-full flex flex-col">
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
                   Most Popular
                 </div>
-                <h4 className="text-2xl font-bold text-white mb-4">Core</h4>
+                <h4 className="text-2xl font-bold text-white mb-4">NoteFlow Plus</h4>
                 <div className="text-4xl font-bold text-blue-400 mb-2">₹499</div>
-                <p className="text-gray-400 mb-4">Basic (20 videos/month)</p>
-                <div className="text-2xl font-bold text-blue-400 mb-6">₹999</div>
-                <p className="text-gray-400 mb-6">Unlimited videos</p>
-                <ul className="space-y-3 mb-8">
+                <p className="text-gray-400 mb-6">Per month</p>
+                <ul className="space-y-2 mb-8 text-sm flex-grow">
                   <li className="flex items-center text-gray-300">
-                    <Check className="w-5 h-5 text-green-400 mr-3" />
-                    Advanced AI features
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    Unlimited journals and chats
                   </li>
                   <li className="flex items-center text-gray-300">
-                    <Check className="w-5 h-5 text-green-400 mr-3" />
-                    Priority support
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    Unlimited image generations
                   </li>
                   <li className="flex items-center text-gray-300">
-                    <Check className="w-5 h-5 text-green-400 mr-3" />
-                    Video generation
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    3 video generations / day
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    5 notes transcriptions / day
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    5 flashcard & practice problems / day
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    5 AI grading sessions / week
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    30 day version history
+                  </li>
+                  <li className="flex items-center text-blue-300">
+                    <Check className="w-4 h-4 text-blue-400 mr-3 flex-shrink-0" />
+                    <span className="font-semibold">Video Vault</span>
                   </li>
                 </ul>
-                <button className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white transition-colors">
-                  Get Core
+                <button className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white transition-colors mt-auto">
+                  Get Plus
                 </button>
               </div>
 
-              {/* Family Plan */}
-              <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 hover:border-green-500/50 transition-all duration-300">
-                <h4 className="text-2xl font-bold text-white mb-4">Family</h4>
-                <div className="text-4xl font-bold text-green-400 mb-6">₹1,499</div>
-                <p className="text-gray-400 mb-6">Per month (3 users)</p>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center text-gray-300">
-                    <Check className="w-5 h-5 text-green-400 mr-3" />
-                    3 user accounts
+              {/* NoteFlow Max */}
+              <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 hover:border-green-500/50 transition-all duration-300 h-full flex flex-col">
+                <h4 className="text-2xl font-bold text-white mb-4">NoteFlow Max</h4>
+                <div className="text-4xl font-bold text-green-400 mb-2">₹999</div>
+                <p className="text-gray-400 mb-6">Per month</p>
+                <ul className="space-y-2 mb-8 text-sm flex-grow">
+                  <li className="flex items-center text-green-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    <span className="font-semibold">Real-time, proactive AI tutor</span>
                   </li>
                   <li className="flex items-center text-gray-300">
-                    <Check className="w-5 h-5 text-green-400 mr-3" />
-                    Shared libraries
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    Unlimited image & video generations
                   </li>
                   <li className="flex items-center text-gray-300">
-                    <Check className="w-5 h-5 text-green-400 mr-3" />
-                    Family dashboard
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    Unlimited notes transcriptions
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    Unlimited flashcard & practice problems
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    Unlimited AI grading sessions
+                  </li>
+                  <li className="flex items-center text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 mr-3 flex-shrink-0" />
+                    Unlimited version history
                   </li>
                 </ul>
-                <button className="w-full py-3 bg-green-600 hover:bg-green-500 rounded-xl font-semibold text-white transition-colors">
-                  Get Family
+                <button className="w-full py-3 bg-green-600 hover:bg-green-500 rounded-xl font-semibold text-white transition-colors mt-auto">
+                  Get Max
                 </button>
               </div>
             </div>
@@ -617,7 +772,7 @@ const LandingPage = ({ onGetStarted }) => {
               </span>
             </div>
             <p className="text-gray-400 text-center">
-              © 2025 NoteFlow. 
+              © 2025 NoteFlow.
             </p>
           </div>
         </div>

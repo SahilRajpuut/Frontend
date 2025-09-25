@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 
@@ -7,8 +8,8 @@ import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
 import PageEditor from './components/PageEditor';
 
-// Import utilities
-import { isAuthenticated, getCurrentUser } from './utils/auth';
+// Import hooks
+import { useAuth } from './hooks/useAuth';
 
 // Import styles
 import './App.css';
@@ -18,25 +19,21 @@ import './styles/animations.css';
 const App = () => {
   const [currentView, setCurrentView] = useState('landing');
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [user, setUser] = useState(null);
   const [currentPageId, setCurrentPageId] = useState(null);
 
-  // Check authentication on app load
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        if (isAuthenticated()) {
-          const userData = getCurrentUser();
-          setUser(userData);
-          setCurrentView('dashboard');
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-      }
-    };
+  // Use auth hook instead of localStorage functions
+  const { user, isAuthenticated, loading } = useAuth();
 
-    checkAuth();
-  }, []);
+  // Check authentication state
+  useEffect(() => {
+    if (!loading) {
+      if (isAuthenticated && user) {
+        setCurrentView('dashboard');
+      } else {
+        setCurrentView('landing');
+      }
+    }
+  }, [isAuthenticated, user, loading]);
 
   // Handle get started button click
   const handleGetStarted = () => {
@@ -46,7 +43,6 @@ const App = () => {
   // Handle successful authentication
   const handleAuthSuccess = (userData) => {
     setShowAuthModal(false);
-    setUser(userData);
     setCurrentView('dashboard');
   };
   
@@ -61,6 +57,18 @@ const App = () => {
     setCurrentPageId(null);
     setCurrentView('dashboard');
   };
+
+  // Show loading screen during auth initialization
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white font-sans flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Initializing NoteFlow...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white font-sans">
