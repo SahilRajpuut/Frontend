@@ -4,6 +4,7 @@ import notesService from '../services/notesService';
 
 export function useNotes(initialParams = {}) {
   const [notes, setNotes] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState({});
@@ -31,8 +32,19 @@ export function useNotes(initialParams = {}) {
     }
   }, [params]);
 
+  const loadFolders = useCallback(async () => {
+    try {
+      const foldersData = await notesService.getFolders();
+      setFolders(foldersData);
+    } catch (err) {
+      console.error('Failed to load folders:', err);
+      // Don't set error state for folders to avoid disrupting main UI
+    }
+  }, []);
+
   useEffect(() => {
     loadNotes();
+    loadFolders();
   }, []);
 
   const createNote = async (noteData) => {
@@ -59,9 +71,9 @@ export function useNotes(initialParams = {}) {
     }
   };
 
-  const deleteNote = async (noteId) => {
+  const deleteNote = async (noteId, permanent = false) => {
     try {
-      await notesService.deleteNote(noteId);
+      await notesService.deleteNote(noteId, permanent);
       setNotes(prev => prev.filter(note => note.id !== noteId));
       return { success: true };
     } catch (err) {
@@ -85,8 +97,66 @@ export function useNotes(initialParams = {}) {
     }
   };
 
+  const createFolder = async (folderData) => {
+    try {
+      const newFolder = await notesService.createFolder(folderData);
+      setFolders(prev => [...prev, newFolder]);
+      return { success: true, folder: newFolder };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const updateFolder = async (folderId, updates) => {
+    try {
+      const updatedFolder = await notesService.updateFolder(folderId, updates);
+      setFolders(prev => 
+        prev.map(folder => 
+          folder.id === folderId ? updatedFolder : folder
+        )
+      );
+      return { success: true, folder: updatedFolder };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const deleteFolder = async (folderId) => {
+    try {
+      await notesService.deleteFolder(folderId);
+      setFolders(prev => prev.filter(folder => folder.id !== folderId));
+      return { success: true };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const moveNoteToFolder = async (noteId, folderId) => {
+    try {
+      const result = await notesService.moveNoteToFolder(noteId, folderId);
+      
+      // Update local state
+      setNotes(prev => 
+        prev.map(note => 
+          note.id === noteId 
+            ? { ...note, folder_id: folderId }
+            : note
+        )
+      );
+      
+      return { success: true };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
   return {
     notes,
+    folders,
     loading,
     error,
     pagination,
@@ -95,6 +165,13 @@ export function useNotes(initialParams = {}) {
     updateNote,
     deleteNote,
     searchNotes,
-    refetch: () => loadNotes(params)
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    moveNoteToFolder,
+    refetch: () => {
+      loadNotes(params);
+      loadFolders();
+    }
   };
 }

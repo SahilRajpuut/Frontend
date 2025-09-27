@@ -72,7 +72,6 @@ class ApiClient {
     return response.data;
   }
 
-  // FIXED: Updated register method to match backend expectations
   async register(email, password, name) {
     const response = await this.client.post('/auth/register', {
       email,
@@ -119,8 +118,8 @@ class ApiClient {
     return response.data;
   }
 
-  async deleteNote(noteId) {
-    const response = await this.client.delete(`/notes/${noteId}`);
+  async deleteNote(noteId, permanent = false) {
+    const response = await this.client.delete(`/notes/${noteId}?permanent=${permanent}`);
     return response.data;
   }
 
@@ -133,6 +132,33 @@ class ApiClient {
 
   async getNoteStats() {
     const response = await this.client.get('/notes/stats/overview');
+    return response.data;
+  }
+
+  // Folder methods
+  async getFolders() {
+    const response = await this.client.get('/folders/');
+    return response.data;
+  }
+
+  async getFolder(folderId) {
+    const response = await this.client.get(`/folders/${folderId}`);
+    return response.data;
+  }
+
+  async createFolder(folderData) {
+    const response = await this.client.post('/folders/', folderData);
+    return response.data;
+  }
+
+  async updateFolder(folderId, folderData) {
+    const response = await this.client.put(`/folders/${folderId}`, folderData);
+    return response.data;
+  }
+
+  async deleteFolder(folderId, moveNotesTo = null) {
+    const params = moveNotesTo ? { move_notes_to: moveNotesTo } : {};
+    const response = await this.client.delete(`/folders/${folderId}`, { params });
     return response.data;
   }
 

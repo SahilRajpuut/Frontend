@@ -1,16 +1,203 @@
 // src/components/Dashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Search, Home, Video, Inbox, Crown, Plus, FileText, 
   ChevronDown, Grid, List, Bell, Users, Share2, MoreHorizontal,
   FolderPlus, Sparkles, Wifi, WifiOff, Loader2, X, Folder,
-  HelpCircle, Trash2, ChevronRight, Edit3, Move, User
+  HelpCircle, Trash2, ChevronRight, Edit3, Move, User, Save,
+  AlertTriangle, Check
 } from 'lucide-react';
 
 // Import hooks
 import { useNotes } from '../hooks/useNotes';
 import { useWebSocket } from '../hooks/useWebSocket';
+
+// Confirmation Modal Component
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, type = 'danger' }) => {
+  if (!isOpen) return null;
+
+  const buttonColors = {
+    danger: 'from-red-600 to-red-700 hover:from-red-700 hover:to-red-800',
+    warning: 'from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800',
+    info: 'from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+  };
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <motion.div
+          className="bg-gray-900 rounded-xl p-6 border border-gray-800 min-w-[400px] max-w-[500px]"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+        >
+          <div className="flex items-center space-x-3 mb-4">
+            <AlertTriangle className="w-6 h-6 text-red-400" />
+            <h3 className="text-lg font-semibold text-white">{title}</h3>
+          </div>
+          
+          <p className="text-gray-300 mb-6">{message}</p>
+          
+          <div className="flex space-x-3 justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors text-white"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className={`px-4 py-2 bg-gradient-to-r ${buttonColors[type]} rounded-lg transition-all text-white font-medium`}
+            >
+              Confirm
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+};
+
+// Update Status Toast Component
+const UpdateStatusToast = ({ isVisible, status, onClose }) => {
+  useEffect(() => {
+    if (isVisible && status === 'success') {
+      const timer = setTimeout(onClose, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, status, onClose]);
+
+  if (!isVisible) return null;
+
+  const statusConfig = {
+    saving: { icon: Save, color: 'blue', message: 'Saving changes...' },
+    success: { icon: Check, color: 'green', message: 'Changes saved successfully!' },
+    error: { icon: AlertTriangle, color: 'red', message: 'Failed to save changes' }
+  };
+
+  const config = statusConfig[status];
+  if (!config) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className={`fixed top-4 right-4 bg-gray-900 border border-${config.color}-500 rounded-lg p-4 flex items-center space-x-3 z-50 shadow-lg`}
+        initial={{ opacity: 0, x: 100 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 100 }}
+      >
+        <config.icon className={`w-5 h-5 text-${config.color}-400`} />
+        <span className="text-white font-medium">{config.message}</span>
+        {status !== 'saving' && (
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+// Folder Creation Modal Component
+const FolderModal = ({ isOpen, onClose, onCreateFolder, folders = [] }) => {
+  const [folderName, setFolderName] = useState('');
+  const [parentFolder, setParentFolder] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (folderName.trim()) {
+      onCreateFolder({
+        name: folderName.trim(),
+        parent_id: parentFolder || null
+      });
+      setFolderName('');
+      setParentFolder('');
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <motion.div
+          className="bg-gray-900 rounded-xl p-6 border border-gray-800 min-w-[400px]"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">Create New Folder</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Folder Name
+              </label>
+              <input
+                type="text"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                placeholder="Enter folder name"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-1 focus:ring-purple-500 focus:outline-none text-white"
+                autoFocus
+              />
+            </div>
+            
+            {folders.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Parent Folder (Optional)
+                </label>
+                <select
+                  value={parentFolder}
+                  onChange={(e) => setParentFolder(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-1 focus:ring-purple-500 focus:outline-none text-white"
+                >
+                  <option value="">No parent folder</option>
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            <div className="flex space-x-3 justify-end pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!folderName.trim()}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg transition-colors text-white font-medium"
+              >
+                Create Folder
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+};
 
 // Create Modal Component
 const CreateModal = ({ isOpen, onClose, onCreateJournal, onCreateFolder }) => {
@@ -251,19 +438,34 @@ const Dashboard = ({ onOpenPage, user }) => {
   const [viewMode, setViewMode] = useState('grid');
   const [activeTab, setActiveTab] = useState('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isPagesDropdownOpen, setIsPagesDropdownOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
-  const [pageActionsDropdown, setPageActionsDropdown] = useState({ isOpen: false, pageId: null, position: { x: 0, y: 0 } });
+  const [pageActionsDropdown, setPageActionsDropdown] = useState({ 
+    isOpen: false, 
+    pageId: null, 
+    itemType: 'note',
+    position: { x: 0, y: 0 } 
+  });
+  const [confirmationModal, setConfirmationModal] = useState({ isOpen: false, type: 'danger', title: '', message: '', onConfirm: null });
+  const [updateStatus, setUpdateStatus] = useState({ isVisible: false, status: 'saving' });
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverFolder, setDragOverFolder] = useState(null);
   
   // Use hooks for data management
   const { 
     notes: journals, 
+    folders,
     loading, 
     error, 
     searchNotes, 
     refetch,
-    createNote
+    createNote,
+    updateNote,
+    deleteNote,
+    createFolder,
+    moveNoteToFolder
   } = useNotes();
   
   const { 
@@ -300,6 +502,8 @@ const Dashboard = ({ onOpenPage, user }) => {
 
   const handleCreateNote = async () => {
     try {
+      setUpdateStatus({ isVisible: true, status: 'saving' });
+      
       const newNote = await createNote({
         title: 'New Journal',
         content: '',
@@ -307,22 +511,86 @@ const Dashboard = ({ onOpenPage, user }) => {
       });
       
       if (newNote.success) {
+        setUpdateStatus({ isVisible: true, status: 'success' });
         onOpenPage(newNote.note.id);
       } else {
+        setUpdateStatus({ isVisible: true, status: 'error' });
         onOpenPage('new');
       }
     } catch (error) {
       console.error('Failed to create note:', error);
+      setUpdateStatus({ isVisible: true, status: 'error' });
       onOpenPage('new');
     }
   };
 
-  const handleCreateFolder = () => {
-    // Implement folder creation logic
-    console.log('Create folder');
+  const handleCreateFolder = async (folderData) => {
+    try {
+      setUpdateStatus({ isVisible: true, status: 'saving' });
+      
+      const result = await createFolder(folderData);
+      
+      if (result.success) {
+        setUpdateStatus({ isVisible: true, status: 'success' });
+        refetch(); // Refresh the folder list
+      } else {
+        setUpdateStatus({ isVisible: true, status: 'error' });
+      }
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      setUpdateStatus({ isVisible: true, status: 'error' });
+    }
   };
 
-  const handlePageActions = (event, pageId, action) => {
+  const handleUpdateNote = async (noteId, updateData) => {
+    try {
+      setUpdateStatus({ isVisible: true, status: 'saving' });
+      
+      const result = await updateNote(noteId, updateData);
+      
+      if (result.success) {
+        setUpdateStatus({ isVisible: true, status: 'success' });
+        refetch(); // Refresh the notes list
+      } else {
+        setUpdateStatus({ isVisible: true, status: 'error' });
+      }
+    } catch (error) {
+      console.error('Failed to update note:', error);
+      setUpdateStatus({ isVisible: true, status: 'error' });
+    }
+  };
+
+  const handleDeleteNote = async (noteId, permanent = false) => {
+    setConfirmationModal({
+      isOpen: true,
+      type: 'danger',
+      title: permanent ? 'Permanently Delete Note' : 'Move to Trash',
+      message: permanent 
+        ? 'This action cannot be undone. The note will be permanently deleted.'
+        : 'Are you sure you want to move this note to trash?',
+      onConfirm: async () => {
+        try {
+          setUpdateStatus({ isVisible: true, status: 'saving' });
+          
+          const result = await deleteNote(noteId, permanent);
+          
+          if (result.success) {
+            setUpdateStatus({ isVisible: true, status: 'success' });
+            refetch(); // Refresh the notes list
+          } else {
+            setUpdateStatus({ isVisible: true, status: 'error' });
+          }
+        } catch (error) {
+          console.error('Failed to delete note:', error);
+          setUpdateStatus({ isVisible: true, status: 'error' });
+        } finally {
+          setConfirmationModal({ isOpen: false, type: 'danger', title: '', message: '', onConfirm: null });
+        }
+      }
+    });
+  };
+
+  const handlePageActions = (event, pageId, action, itemType = 'note') => {
     event.stopPropagation();
     
     if (action === 'menu') {
@@ -330,6 +598,7 @@ const Dashboard = ({ onOpenPage, user }) => {
       setPageActionsDropdown({
         isOpen: true,
         pageId,
+        itemType,
         position: {
           x: rect.left,
           y: rect.top
@@ -338,25 +607,121 @@ const Dashboard = ({ onOpenPage, user }) => {
     }
   };
 
-  const handlePageAction = (action, pageId) => {
+  const handlePageAction = (action, pageId, itemType = 'note') => {
     setPageActionsDropdown({ isOpen: false, pageId: null, position: { x: 0, y: 0 } });
     
     switch (action) {
       case 'rename':
-        // Implement rename logic
-        console.log('Rename page:', pageId);
+        // TODO: Implement rename logic with inline editing
+        console.log('Rename:', itemType, pageId);
         break;
       case 'move':
-        // Implement move logic
-        console.log('Move page:', pageId);
+        // TODO: Implement move to folder dialog
+        console.log('Move:', itemType, pageId);
         break;
       case 'trash':
-        // Implement trash logic
-        console.log('Move to trash:', pageId);
+        if (itemType === 'folder') {
+          handleDeleteFolder(pageId);
+        } else {
+          handleDeleteNote(pageId, false);
+        }
         break;
       default:
         break;
     }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    setConfirmationModal({
+      isOpen: true,
+      type: 'danger',
+      title: 'Delete Folder',
+      message: 'Are you sure you want to delete this folder? All notes in this folder will be moved to the root level.',
+      onConfirm: async () => {
+        try {
+          setUpdateStatus({ isVisible: true, status: 'saving' });
+          
+          const result = await deleteFolder(folderId);
+          
+          if (result.success) {
+            setUpdateStatus({ isVisible: true, status: 'success' });
+            refetch(); // Refresh both notes and folders
+          } else {
+            setUpdateStatus({ isVisible: true, status: 'error' });
+          }
+        } catch (error) {
+          console.error('Failed to delete folder:', error);
+          setUpdateStatus({ isVisible: true, status: 'error' });
+        } finally {
+          setConfirmationModal({ isOpen: false, type: 'danger', title: '', message: '', onConfirm: null });
+        }
+      }
+    });
+  };
+
+  // Drag and Drop handlers
+  const handleDragStart = (e, item, type) => {
+    console.log('Drag started:', { item, type });
+    setDraggedItem({ ...item, type });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (e, folderId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Drag enter folder:', folderId);
+    setDragOverFolder(folderId);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only clear if we're really leaving the folder area
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      console.log('Drag leave folder');
+      setDragOverFolder(null);
+    }
+  };
+
+  const handleDrop = async (e, targetFolderId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Drop event:', { draggedItem, targetFolderId });
+    setDragOverFolder(null);
+    
+    if (draggedItem && draggedItem.type === 'note') {
+      try {
+        setUpdateStatus({ isVisible: true, status: 'saving' });
+        console.log('Moving note to folder:', draggedItem.id, 'to', targetFolderId);
+        
+        const result = await moveNoteToFolder(String(draggedItem.id), targetFolderId ? String(targetFolderId) : null);
+        
+        if (result.success) {
+          setUpdateStatus({ isVisible: true, status: 'success' });
+          refetch();
+        } else {
+          console.error('Move failed:', result.error);
+          setUpdateStatus({ isVisible: true, status: 'error' });
+        }
+      } catch (error) {
+        console.error('Failed to move note:', error);
+        setUpdateStatus({ isVisible: true, status: 'error' });
+      }
+    }
+    
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = () => {
+    console.log('Drag ended');
+    setDraggedItem(null);
+    setDragOverFolder(null);
   };
 
   // Filter notes based on active tab
@@ -368,6 +733,13 @@ const Dashboard = ({ onOpenPage, user }) => {
 
   return (
     <div className="min-h-screen bg-black flex">
+      {/* Update Status Toast */}
+      <UpdateStatusToast
+        isVisible={updateStatus.isVisible}
+        status={updateStatus.status}
+        onClose={() => setUpdateStatus({ isVisible: false, status: 'saving' })}
+      />
+
       {/* Sidebar - 20% width */}
       <motion.div 
         className="w-1/5 bg-black border-r border-gray-900 flex flex-col h-screen fixed left-0 top-0 z-10"
@@ -478,6 +850,9 @@ const Dashboard = ({ onOpenPage, user }) => {
                   key={journal.id}
                   className="flex items-center group"
                   whileHover={{ scale: 1.01 }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, journal, 'note')}
+                  onDragEnd={handleDragEnd}
                 >
                   <button
                     onClick={() => onOpenPage(journal.id)}
@@ -676,14 +1051,16 @@ const Dashboard = ({ onOpenPage, user }) => {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
                 <span>Folders</span>
-                <span className="bg-gray-900 text-sm px-3 py-1 rounded-full border border-gray-800">0</span>
+                <span className="bg-gray-900 text-sm px-3 py-1 rounded-full border border-gray-800">
+                  {folders?.length || 0}
+                </span>
               </h2>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {/* Create Folder */}
               <motion.button
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={() => setIsFolderModalOpen(true)}
                 className="h-40 bg-gray-900 border-2 border-dashed border-purple-500/50 rounded-2xl hover:border-purple-500 hover:bg-gray-800 transition-all duration-300 flex flex-col items-center justify-center space-y-3 group"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -693,6 +1070,54 @@ const Dashboard = ({ onOpenPage, user }) => {
                   Create Folder
                 </span>
               </motion.button>
+
+              {/* Existing Folders */}
+              {folders?.map((folder) => (
+                <motion.div
+                  key={folder.id}
+                  className={`h-40 bg-gray-900 rounded-2xl border transition-all duration-300 cursor-pointer group p-6 ${
+                    dragOverFolder === folder.id 
+                      ? 'border-purple-500 bg-purple-900/20 scale-105' 
+                      : 'border-gray-800 hover:bg-gray-800'
+                  }`}
+                  whileHover={{ scale: dragOverFolder === folder.id ? 1.05 : 1.02 }}
+                  onDragOver={handleDragOver}
+                  onDragEnter={(e) => handleDragEnter(e, folder.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, folder.id)}
+                >
+                  <div className="h-full flex flex-col">
+                    <div className="flex-1 mb-4">
+                      <div className="h-16 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl mb-4 flex items-center justify-center border border-blue-500/20">
+                        <Folder className="w-8 h-8 text-blue-400" />
+                      </div>
+                      <h3 className="font-semibold text-white truncate text-lg">{folder.name}</h3>
+                      <p className="text-sm text-gray-400">
+                        {folder.note_count || 0} notes
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">{folder.created_at}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePageActions(e, folder.id, 'menu');
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-gray-800 rounded-lg"
+                      >
+                        <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Drop indicator */}
+                  {dragOverFolder === folder.id && draggedItem && (
+                    <div className="absolute inset-0 border-2 border-purple-500 border-dashed rounded-2xl bg-purple-500/10 flex items-center justify-center pointer-events-none">
+                      <div className="text-purple-400 font-medium">Drop here</div>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
             </div>
           </motion.section>
 
@@ -749,6 +1174,9 @@ const Dashboard = ({ onOpenPage, user }) => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, journal, 'note')}
+                    onDragEnd={handleDragEnd}
                   >
                     {viewMode === 'grid' ? (
                       <div className="h-full flex flex-col">
@@ -771,7 +1199,7 @@ const Dashboard = ({ onOpenPage, user }) => {
                                 <span className="text-xs text-green-400">Shared</span>
                               </div>
                             )}
-                            <span className="text-xs text-gray-500">{journal.date}</span>
+                            <span className="text-xs text-gray-500">{journal.date || journal.created_at}</span>
                           </div>
                           <button
                             onClick={(e) => handlePageActions(e, journal.id, 'menu')}
@@ -788,7 +1216,7 @@ const Dashboard = ({ onOpenPage, user }) => {
                         </div>
                         <div className="flex-1">
                           <h3 className="font-semibold text-white">{journal.title}</h3>
-                          <p className="text-sm text-gray-400">{journal.date}</p>
+                          <p className="text-sm text-gray-400">{journal.date || journal.created_at}</p>
                         </div>
                         {journal.shared && (
                           <div className="flex items-center space-x-1">
@@ -837,7 +1265,14 @@ const Dashboard = ({ onOpenPage, user }) => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreateJournal={handleCreateNote}
+        onCreateFolder={() => setIsFolderModalOpen(true)}
+      />
+
+      <FolderModal
+        isOpen={isFolderModalOpen}
+        onClose={() => setIsFolderModalOpen(false)}
         onCreateFolder={handleCreateFolder}
+        folders={folders}
       />
 
       <UpgradeModal
@@ -848,10 +1283,19 @@ const Dashboard = ({ onOpenPage, user }) => {
       <PageActionsDropdown
         isOpen={pageActionsDropdown.isOpen}
         onClose={() => setPageActionsDropdown({ isOpen: false, pageId: null, position: { x: 0, y: 0 } })}
-        onRename={() => handlePageAction('rename', pageActionsDropdown.pageId)}
-        onMove={() => handlePageAction('move', pageActionsDropdown.pageId)}
-        onTrash={() => handlePageAction('trash', pageActionsDropdown.pageId)}
+        onRename={() => handlePageAction('rename', pageActionsDropdown.pageId, pageActionsDropdown.itemType || 'note')}
+        onMove={() => handlePageAction('move', pageActionsDropdown.pageId, pageActionsDropdown.itemType || 'note')}
+        onTrash={() => handlePageAction('trash', pageActionsDropdown.pageId, pageActionsDropdown.itemType || 'note')}
         position={pageActionsDropdown.position}
+      />
+
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        onClose={() => setConfirmationModal({ isOpen: false, type: 'danger', title: '', message: '', onConfirm: null })}
+        onConfirm={confirmationModal.onConfirm}
+        title={confirmationModal.title}
+        message={confirmationModal.message}
+        type={confirmationModal.type}
       />
     </div>
   );
