@@ -20,7 +20,7 @@ class ApiClient {
           // Only add real JWT tokens, not demo tokens
           config.headers.Authorization = `Bearer ${token}`;
         }
-        console.log('API Request:', config.method?.toUpperCase(), config.url, config.data); // Debug log
+        console.log('API Request:', config.method?.toUpperCase(), config.url, config.data);
         return config;
       },
       (error) => {
@@ -31,11 +31,11 @@ class ApiClient {
     // Response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => {
-        console.log('API Response:', response.status, response.config.url, response.data); // Debug log
+        console.log('API Response:', response.status, response.config.url, response.data);
         return response;
       },
       async (error) => {
-        console.error('API Error:', error.response?.status, error.response?.data || error.message); // Debug log
+        console.error('API Error:', error.response?.status, error.response?.data || error.message);
         
         const originalRequest = error.config;
 
@@ -54,6 +54,13 @@ class ApiClient {
         }
 
         // Handle other HTTP errors
+        console.error('Full error response:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
         const errorMessage = error.response.data?.detail || 
                            error.response.data?.message || 
                            `Request failed with status ${error.response.status}`;
@@ -76,7 +83,7 @@ class ApiClient {
     const response = await this.client.post('/auth/register', {
       email,
       password,
-      confirm_password: password, // Backend requires this field
+      confirm_password: password,
       name
     });
     return response.data;
@@ -109,12 +116,22 @@ class ApiClient {
   }
 
   async createNote(noteData) {
-    const response = await this.client.post('/notes/', noteData);
+    const { id, ...dataWithoutId } = noteData;
+    const response = await this.client.post('/notes/', dataWithoutId);
     return response.data;
   }
 
   async updateNote(noteId, noteData) {
-    const response = await this.client.put(`/notes/${noteId}`, noteData);
+    const { id, ...dataWithoutId } = noteData;
+    const response = await this.client.put(`/notes/${noteId}`, dataWithoutId);
+    return response.data;
+  }
+
+  // NEW: Rename note method
+  async renameNote(noteId, newTitle) {
+    const response = await this.client.patch(`/notes/${noteId}/rename`, null, {
+      params: { new_title: newTitle }
+    });
     return response.data;
   }
 
@@ -146,6 +163,12 @@ class ApiClient {
     return response.data;
   }
 
+  // NEW: Get folder contents
+  async getFolderContents(folderId) {
+    const response = await this.client.get(`/folders/${folderId || 0}/contents`);
+    return response.data;
+  }
+
   async createFolder(folderData) {
     const response = await this.client.post('/folders/', folderData);
     return response.data;
@@ -157,8 +180,32 @@ class ApiClient {
   }
 
   async deleteFolder(folderId, moveNotesTo = null) {
-    const params = moveNotesTo ? { move_notes_to: moveNotesTo } : {};
-    const response = await this.client.delete(`/folders/${folderId}`, { params });
+    const url = `/folders/${folderId}`;
+    const config = {};
+    
+    if (moveNotesTo !== null) {
+      config.params = { move_notes_to: moveNotesTo };
+    }
+    
+    const response = await this.client.delete(url, config);
+    return response.data;
+  }
+  // Add this method to your apiClient class
+// Rename folder method - CORRECTED
+async renameFolder(folderId, newName) {
+  const response = await this.client.patch(
+    `/folders/${folderId}/rename`,
+    null,
+    {
+      params: { new_name: newName }
+    }
+  );
+  return response.data;
+}
+
+  // NEW: Move note to folder
+  async moveNoteToFolder(noteId, folderId) {
+    const response = await this.client.post(`/folders/${folderId || 0}/notes/${noteId}`);
     return response.data;
   }
 

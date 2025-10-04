@@ -1,0 +1,47 @@
+/* src/styles/editor.css - Add this file for enhanced editor styling */
+.prose h1, .prose h2, .prose h3 {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: bold;
+  margin: 1.5rem 0 1rem 0;
+}
+
+.prose strong {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: bold;
+}
+
+.prose code {
+  background: rgba(139, 92, 246, 0.1);
+  color: #a78bfa;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-family: 'Fira Code', monospace;
+}
+
+.prose blockquote {
+  border-left: 4px solid;
+  border-image: linear-gradient(to bottom, #667eea, #764ba2) 1;
+  padding-left: 1rem;
+  color: #e9d5ff;
+  font-style: italic;
+}
+
+.prose ul li::marker {
+  color: #a78bfa;
+}
+
+.prose ol li::marker {
+  color: #f9a8d4;
+}
+
+.highlighted-text {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 146, 60, 0.2));
+  padding: 0.1rem 0.2rem;
+  border-radius: 0.25rem;
+}

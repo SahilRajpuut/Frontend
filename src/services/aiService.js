@@ -2,124 +2,161 @@
 class AIService {
   constructor() {
     this.isEnabled = false;
+    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     this.checkAIStatus();
   }
 
-  // Check if AI features are available
+  getAuthToken() {
+    return localStorage.getItem('noteflow_token') || sessionStorage.getItem('noteflow_token');
+  }
+
+  async apiCall(endpoint, method = 'GET', body = null) {
+    const token = this.getAuthToken();
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+
+    const options = {
+      method,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    };
+
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(`${this.baseURL}${endpoint}`, options);
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+      console.error('API Error:', error);
+      throw new Error(error.detail || JSON.stringify(error) || 'API request failed');
+    }
+
+    return response.json();
+  }
+
   async checkAIStatus() {
     try {
-      // For now, AI is disabled (will connect to backend later)
-      this.isEnabled = false;
-      return { enabled: false, message: "AI features will be enabled when backend is connected" };
+      const response = await this.apiCall('/ai/status');
+      this.isEnabled = response.enabled;
+      return response;
     } catch (error) {
       console.error('AI status check failed:', error);
       this.isEnabled = false;
-      return { enabled: false };
+      return { enabled: false, error: error.message };
     }
   }
 
-  // Ask AI a question with context
   async askQuestion(question, contextNoteIds = null, includeRecent = true) {
     try {
-      if (!this.isEnabled) {
+      const token = this.getAuthToken();
+      if (!token) {
         return {
-          answer: "AI features are currently not available. This is a demo response to your question: " + question,
-          context_used: [],
-          confidence: 0.5,
+          answer: "Please log in to use AI features",
+          error: "Not authenticated",
+          context_used: 0,
+          confidence: 0,
           sources: [],
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          success: false
         };
       }
 
-      // This will connect to backend later
-      return {
-        answer: "I'm currently unable to process your question. Please check your connection and try again.",
-        error: "AI service not connected",
-        context_used: [],
-        confidence: 0,
-        sources: [],
-        timestamp: new Date().toISOString()
+      // Match backend schema exactly
+      const requestBody = {
+        question: question,
+        context_note_ids: contextNoteIds,  // Python expects snake_case
+        include_recent: includeRecent
       };
+
+      console.log('Sending AI request:', requestBody);
+      const response = await this.apiCall('/ai/ask', 'POST', requestBody);
+      
+      // Backend returns "response" field, map it to "answer" for frontend
+      return {
+        answer: response.response,  // Map backend "response" to frontend "answer"
+        context_used: response.context_used,
+        confidence: response.confidence || 0.8,
+        sources: response.sources || [],
+        timestamp: response.timestamp,
+        model: response.model,
+        success: response.success !== false
+      };
+
     } catch (error) {
       console.error('AI question failed:', error);
       
       return {
-        answer: "I'm currently unable to process your question. Please check your connection and try again.",
+        answer: `Failed to get AI response: ${error.message}`,
         error: error.message,
-        context_used: [],
+        context_used: 0,
         confidence: 0,
         sources: [],
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        success: false
       };
     }
   }
 
-  // Get proactive AI suggestions
   async getSuggestions(limit = 5) {
     try {
-      if (!this.isEnabled) {
-        return this.getFallbackSuggestions();
-      }
-
-      // This will connect to backend later
-      return this.getFallbackSuggestions();
-    } catch (error) {
-      console.error('AI suggestions failed:', error);
-      return this.getFallbackSuggestions();
-    }
-  }
-
-  // Analyze notes using AI
-  async analyzeNotes(noteIds, analysisType = 'general') {
-    try {
-      if (!this.isEnabled) {
-        throw new Error('AI analysis is not available');
-      }
-
-      // This will connect to backend later
-      return {
-        analysis: {
-          type: analysisType,
-          note_count: noteIds.length,
-          status: 'error',
-          message: 'Analysis temporarily unavailable'
-        },
-        insights: [
-          `Selected ${noteIds.length} notes for analysis`,
-          'AI analysis is currently unavailable'
-        ],
-        recommendations: [
-          'Try again later when AI services are restored',
-          'Review your notes manually for key themes'
-        ],
-        summary: 'Analysis could not be completed',
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      console.error('AI analysis failed:', error);
+      const response = await this.apiCall(`/ai/suggestions?limit=${limit}`);
       
       return {
-        analysis: {
-          type: analysisType,
-          note_count: noteIds.length,
-          status: 'error',
-          message: 'Analysis temporarily unavailable'
-        },
-        insights: [
-          `Selected ${noteIds.length} notes for analysis`,
-          'AI analysis is currently unavailable'
-        ],
-        recommendations: [
-          'Try again later when AI services are restored',
-          'Review your notes manually for key themes'
-        ],
-        summary: 'Analysis could not be completed',
-        timestamp: new Date().toISOString()
+        suggestions: response.suggestions.map(s => ({
+          id: s.id,
+          text: s.description || s.title || s.text,
+          title: s.title,
+          description: s.description,
+          category: s.type || s.category,
+          priority: s.priority,
+          timestamp: s.timestamp,
+          source: s.source
+        })),
+        total: response.total,
+        generated_at: response.generated_at,
+        success: true
+      };
+    } catch (error) {
+      console.error('AI suggestions failed:', error);
+      return {
+        suggestions: this.getFallbackSuggestions().suggestions,
+        total: 0,
+        error: error.message,
+        success: false
       };
     }
   }
 
-  // === FALLBACK METHODS ===
+  async analyzeNotes(noteIds, analysisType = 'general') {
+    try {
+      const response = await this.apiCall('/ai/analyze', 'POST', {
+        note_ids: noteIds,
+        analysis_type: analysisType
+      });
+      
+      return {
+        analysis: response.analysis,
+        insights: response.insights,
+        recommendations: response.recommendations,
+        timestamp: response.timestamp,
+        success: true
+      };
+    } catch (error) {
+      console.error('Note analysis failed:', error);
+      return {
+        analysis: {},
+        insights: [],
+        recommendations: [],
+        error: error.message,
+        success: false
+      };
+    }
+  }
 
   getFallbackSuggestions() {
     return {
@@ -144,17 +181,10 @@ class AIService {
         }
       ],
       total: 3,
-      generated_at: new Date().toISOString(),
-      categories: {
-        study: [{ text: 'Review your recent notes and identify key concepts' }],
-        review: [{ text: 'Create a summary of your latest journal entry' }],
-        practice: [{ text: 'Practice explaining concepts in your own words' }],
-        explore: []
-      }
+      generated_at: new Date().toISOString()
     };
   }
 }
 
-// Export singleton instance
 const aiService = new AIService();
 export default aiService;

@@ -1,4 +1,4 @@
-// src/hooks/useNotes.js
+// src/hooks/useNotes.js (Updated with optimistic update fix)
 import { useState, useEffect, useCallback } from 'react';
 import notesService from '../services/notesService';
 
@@ -49,27 +49,50 @@ export function useNotes(initialParams = {}) {
 
   const createNote = async (noteData) => {
     try {
-      const newNote = await notesService.createNote(noteData);
+      const response = await notesService.createNote(noteData);
+      const newNote = response.note || response;
+      
       setNotes(prev => [newNote, ...prev]);
       return { success: true, note: newNote };
     } catch (err) {
+      console.error('Failed to create note:', err);
       setError(err.message);
       return { success: false, error: err.message };
     }
   };
 
+  // ***************************************************************
+  // FIX STARTS HERE: Applying the optimistic update logic
+  // ***************************************************************
   const updateNote = async (noteId, updates) => {
     try {
-      const updatedNote = await notesService.updateNote(noteId, updates);
+      // 1. Optimistically update the UI with the user's changes immediately.
       setNotes(prev => prev.map(note => 
-        note.id === noteId ? updatedNote : note
+        note.id === noteId ? { ...note, ...updates } : note
       ));
-      return { success: true, note: updatedNote };
+
+      // 2. Send the update to the backend in the background.
+      // We no longer use the response to update the state, which prevents the bug.
+      const response = await notesService.updateNote(noteId, updates);
+      const updatedNoteFromServer = response.note || response;
+      
+      // 3. (Optional but good practice) Re-sync with the final server response
+      // to catch any backend-generated values like `updated_at`.
+      setNotes(prev => prev.map(note => 
+        note.id === noteId ? updatedNoteFromServer : note
+      ));
+
+      return { success: true, note: updatedNoteFromServer };
     } catch (err) {
+      console.error('Failed to update note:', err);
       setError(err.message);
+      // Here you could add logic to revert the change if the API call fails
       return { success: false, error: err.message };
     }
   };
+  // ***************************************************************
+  // FIX ENDS HERE
+  // ***************************************************************
 
   const deleteNote = async (noteId, permanent = false) => {
     try {
@@ -77,6 +100,7 @@ export function useNotes(initialParams = {}) {
       setNotes(prev => prev.filter(note => note.id !== noteId));
       return { success: true };
     } catch (err) {
+      console.error('Failed to delete note:', err);
       setError(err.message);
       return { success: false, error: err.message };
     }
@@ -123,10 +147,15 @@ export function useNotes(initialParams = {}) {
     }
   };
 
-  const deleteFolder = async (folderId) => {
+  const deleteFolder = async (folderId, moveNotesTo = null) => {
     try {
-      await notesService.deleteFolder(folderId);
+      await notesService.deleteFolder(folderId, moveNotesTo);
       setFolders(prev => prev.filter(folder => folder.id !== folderId));
+      
+      if (moveNotesTo !== null) {
+        await loadNotes();
+      }
+      
       return { success: true };
     } catch (err) {
       setError(err.message);
@@ -136,9 +165,8 @@ export function useNotes(initialParams = {}) {
 
   const moveNoteToFolder = async (noteId, folderId) => {
     try {
-      const result = await notesService.moveNoteToFolder(noteId, folderId);
+      await notesService.moveNoteToFolder(noteId, folderId);
       
-      // Update local state
       setNotes(prev => 
         prev.map(note => 
           note.id === noteId 

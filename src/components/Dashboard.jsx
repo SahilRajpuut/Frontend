@@ -1,6 +1,8 @@
 // src/components/Dashboard.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import { 
   BookOpen, Search, Home, Video, Inbox, Crown, Plus, FileText, 
   ChevronDown, Grid, List, Bell, Users, Share2, MoreHorizontal,
@@ -8,6 +10,7 @@ import {
   HelpCircle, Trash2, ChevronRight, Edit3, Move, User, Save,
   AlertTriangle, Check
 } from 'lucide-react';
+import notesService from '../services/notesService';
 
 // Import hooks
 import { useNotes } from '../hooks/useNotes';
@@ -98,6 +101,70 @@ const UpdateStatusToast = ({ isVisible, status, onClose }) => {
           </button>
         )}
       </motion.div>
+    </AnimatePresence>
+  );
+};
+
+// Title Input Modal Component
+const TitleInputModal = ({ isOpen, onClose, onSubmit, title, setTitle, error, setError, submitLabel = "Create Note" }) => {
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <motion.div
+          className="bg-gray-900 rounded-xl p-6 border border-gray-800 min-w-[400px]"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">Enter Note Title</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  if (error) setError('');
+                }}
+                onKeyPress={(e) => e.key === 'Enter' && onSubmit()}
+                placeholder="Enter a unique title..."
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-1 focus:ring-purple-500 focus:outline-none text-white"
+                autoFocus
+              />
+              {error && (
+                <p className="text-red-400 text-sm mt-2">{error}</p>
+              )}
+            </div>
+            
+            <div className="flex space-x-3 justify-end pt-4">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onSubmit}
+                disabled={!title.trim()}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg transition-colors text-white font-medium"
+              >
+                {submitLabel}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
     </AnimatePresence>
   );
 };
@@ -434,6 +501,8 @@ const UpgradeModal = ({ isOpen, onClose }) => {
 };
 
 const Dashboard = ({ onOpenPage, user }) => {
+    const navigate = useNavigate();
+     const { logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [activeTab, setActiveTab] = useState('all');
@@ -453,20 +522,38 @@ const Dashboard = ({ onOpenPage, user }) => {
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverFolder, setDragOverFolder] = useState(null);
   
-  // Use hooks for data management
-  const { 
-    notes: journals, 
-    folders,
-    loading, 
-    error, 
-    searchNotes, 
-    refetch,
-    createNote,
-    updateNote,
-    deleteNote,
-    createFolder,
-    moveNoteToFolder
-  } = useNotes();
+  // New states for title input
+  const [isTitleModalOpen, setIsTitleModalOpen] = useState(false);
+  const [newNoteTitle, setNewNoteTitle] = useState('');
+  const [titleError, setTitleError] = useState('');
+  
+  // Rename modal state
+  const [renameModal, setRenameModal] = useState({ isOpen: false, noteId: null, currentTitle: '' });
+  
+  // Folder rename state
+  const [renamingFolderId, setRenamingFolderId] = useState(null);
+  const [renameFolderName, setRenameFolderName] = useState('');
+  
+  // Folder navigation state
+  const [currentFolderId, setCurrentFolderId] = useState(null);
+  const [folderContents, setFolderContents] = useState({});
+  const [loadingFolder, setLoadingFolder] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState(new Set());
+  
+const { 
+  notes: journals, 
+  folders,
+  loading, 
+  error, 
+  searchNotes, 
+  refetch,
+  createNote,
+  updateNote,
+  deleteNote,
+  createFolder,
+  deleteFolder, 
+  moveNoteToFolder
+} = useNotes();
   
   const { 
     connected: wsConnected, 
@@ -499,28 +586,157 @@ const Dashboard = ({ onOpenPage, user }) => {
       refetch();
     }
   };
+  const handleSignOut = async () => {
+  try {
+    console.log('Signing out...');
+    setIsUserDropdownOpen(false); // Close dropdown immediately
+    
+    // Call logout from useAuth hook - this handles backend API call
+    await logout();
+    
+    // Clear local storage (logout should already do this, but be explicit)
+    localStorage.removeItem('noteflow_token');
+    localStorage.removeItem('noteflow_user');
+    
+    console.log('Signed out successfully');
+    
+    // Navigation will happen automatically via App.jsx routing
+    // because user state is now null and isAuthenticated is false
+    
+  } catch (error) {
+    console.error('Error signing out:', error);
+    
+    // Even if logout fails, clear local data and force navigation
+    localStorage.removeItem('noteflow_token');
+    localStorage.removeItem('noteflow_user');
+    navigate('/', { replace: true });
+  }
+};
+  const getLastSavedText = () => {
+    if (!user?.updated_at) return 'Never';
+    
+    const now = new Date();
+    const updatedAt = new Date(user.updated_at);
+    const diffInMs = now - updatedAt;
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+    return `${Math.floor(diffInDays / 365)} years ago`;
+  };
 
-  const handleCreateNote = async () => {
+
+  // Load folder contents when folder is selected
+  const loadFolderContents = async (folderId) => {
+    setLoadingFolder(true);
+    try {
+      const data = await notesService.getFolderContents(folderId);
+      setFolderContents(prev => ({
+        ...prev,
+        [folderId]: data
+      }));
+      setCurrentFolderId(folderId);
+    } catch (error) {
+      console.error('Failed to load folder contents:', error);
+      setUpdateStatus({ isVisible: true, status: 'error' });
+    } finally {
+      setLoadingFolder(false);
+    }
+  };
+
+  // Navigate to folder
+  const handleOpenFolder = (folderId) => {
+    loadFolderContents(folderId);
+  };
+
+  // Navigate back to root
+  const handleBackToRoot = () => {
+    setCurrentFolderId(null);
+    setFolderContents({});
+    refetch();
+  };
+
+  // Toggle folder expansion
+  const toggleFolderExpansion = async (folderId) => {
+    const newExpandedFolders = new Set(expandedFolders);
+    
+    if (newExpandedFolders.has(folderId)) {
+      newExpandedFolders.delete(folderId);
+    } else {
+      newExpandedFolders.add(folderId);
+      if (!folderContents[folderId]) {
+        try {
+          const contents = await notesService.getFolderContents(folderId);
+          setFolderContents(prev => ({
+            ...prev,
+            [folderId]: contents
+          }));
+        } catch (error) {
+          console.error('Error loading folder contents:', error);
+          setUpdateStatus({ isVisible: true, status: 'error' });
+        }
+      }
+    }
+    
+    setExpandedFolders(newExpandedFolders);
+  };
+
+  // Updated handleCreateNote to create in current folder
+  const handleCreateNote = () => {
+    setNewNoteTitle('');
+    setTitleError('');
+    setIsTitleModalOpen(true);
+  };
+
+  // New function to create note with title (with folder support)
+  const handleCreateNoteWithTitle = async () => {
+    if (!newNoteTitle.trim()) {
+      setTitleError('Title cannot be empty');
+      return;
+    }
+
     try {
       setUpdateStatus({ isVisible: true, status: 'saving' });
       
-      const newNote = await createNote({
-        title: 'New Journal',
+      const newNote = await notesService.createNote({
+        title: newNoteTitle.trim(),
         content: '',
-        shared: false
+        category: 'General',
+        priority: 'medium',
+        shared: false,
+        folder_id: currentFolderId // Create in current folder
       });
       
-      if (newNote.success) {
-        setUpdateStatus({ isVisible: true, status: 'success' });
-        onOpenPage(newNote.note.id);
+      console.log('Created new note:', newNote);
+      
+      setUpdateStatus({ isVisible: true, status: 'success' });
+      setIsTitleModalOpen(false);
+      
+      // Refresh folder contents if inside a folder
+      if (currentFolderId) {
+        loadFolderContents(currentFolderId);
       } else {
-        setUpdateStatus({ isVisible: true, status: 'error' });
-        onOpenPage('new');
+        refetch();
       }
+      
+      onOpenPage(newNote.id);
+      
     } catch (error) {
-      console.error('Failed to create note:', error);
+      console.error('Failed to create new journal:', error);
+      
+      // Check if it's a duplicate title error
+      if (error.response?.data?.detail?.includes('already exists')) {
+        setTitleError(error.response.data.detail);
+      } else if (error.message?.includes('already exists')) {
+        setTitleError(error.message);
+      } else {
+        setTitleError('Failed to create note. Please try again.');
+      }
+      
       setUpdateStatus({ isVisible: true, status: 'error' });
-      onOpenPage('new');
     }
   };
 
@@ -532,7 +748,7 @@ const Dashboard = ({ onOpenPage, user }) => {
       
       if (result.success) {
         setUpdateStatus({ isVisible: true, status: 'success' });
-        refetch(); // Refresh the folder list
+        refetch();
       } else {
         setUpdateStatus({ isVisible: true, status: 'error' });
       }
@@ -550,7 +766,7 @@ const Dashboard = ({ onOpenPage, user }) => {
       
       if (result.success) {
         setUpdateStatus({ isVisible: true, status: 'success' });
-        refetch(); // Refresh the notes list
+        refetch();
       } else {
         setUpdateStatus({ isVisible: true, status: 'error' });
       }
@@ -576,7 +792,13 @@ const Dashboard = ({ onOpenPage, user }) => {
           
           if (result.success) {
             setUpdateStatus({ isVisible: true, status: 'success' });
-            refetch(); // Refresh the notes list
+            
+            // Refresh based on current view
+            if (currentFolderId) {
+              loadFolderContents(currentFolderId);
+            } else {
+              refetch();
+            }
           } else {
             setUpdateStatus({ isVisible: true, status: 'error' });
           }
@@ -588,6 +810,85 @@ const Dashboard = ({ onOpenPage, user }) => {
         }
       }
     });
+  };
+
+  // Note rename handler
+  const handleRename = (noteId, currentTitle) => {
+    setRenameModal({ isOpen: true, noteId, currentTitle });
+    setTitleError('');
+    setPageActionsDropdown({ isOpen: false, pageId: null, itemType: 'note', position: { x: 0, y: 0 } });
+  };
+
+  // Note rename submit handler
+  const handleRenameSubmit = async () => {
+    if (!renameModal.currentTitle.trim()) {
+      setTitleError('Title cannot be empty');
+      return;
+    }
+
+    try {
+      setUpdateStatus({ isVisible: true, status: 'saving' });
+      
+      await notesService.renameNote(renameModal.noteId, renameModal.currentTitle.trim());
+      
+      setUpdateStatus({ isVisible: true, status: 'success' });
+      setRenameModal({ isOpen: false, noteId: null, currentTitle: '' });
+      setTitleError('');
+      
+      // Refresh based on current view
+      if (currentFolderId) {
+        loadFolderContents(currentFolderId);
+      } else {
+        refetch();
+      }
+      
+    } catch (error) {
+      console.error('Failed to rename note:', error);
+      if (error.message.includes('already exists')) {
+        setTitleError(error.message);
+      } else {
+        setTitleError('Failed to rename note. Please try again.');
+      }
+      setUpdateStatus({ isVisible: true, status: 'error' });
+    }
+  };
+
+  // Folder rename handler
+  const handleRenameFolder = (folderId, currentName) => {
+    setRenamingFolderId(folderId);
+    setRenameFolderName(currentName);
+    setTitleError('');
+    setPageActionsDropdown({ isOpen: false, pageId: null, itemType: 'note', position: { x: 0, y: 0 } });
+  };
+
+  // Folder rename submit handler
+  const handleRenameFolderSubmit = async () => {
+    if (!renameFolderName.trim()) {
+      setTitleError('Folder name cannot be empty');
+      return;
+    }
+
+    try {
+      setUpdateStatus({ isVisible: true, status: 'saving' });
+      
+      await notesService.renameFolder(renamingFolderId, renameFolderName.trim());
+      
+      setUpdateStatus({ isVisible: true, status: 'success' });
+      setRenamingFolderId(null);
+      setRenameFolderName('');
+      setTitleError('');
+      
+      refetch();
+      
+    } catch (error) {
+      console.error('Failed to rename folder:', error);
+      if (error.message.includes('already exists')) {
+        setTitleError(error.message);
+      } else {
+        setTitleError('Failed to rename folder. Please try again.');
+      }
+      setUpdateStatus({ isVisible: true, status: 'error' });
+    }
   };
 
   const handlePageActions = (event, pageId, action, itemType = 'note') => {
@@ -608,15 +909,23 @@ const Dashboard = ({ onOpenPage, user }) => {
   };
 
   const handlePageAction = (action, pageId, itemType = 'note') => {
-    setPageActionsDropdown({ isOpen: false, pageId: null, position: { x: 0, y: 0 } });
+    setPageActionsDropdown({ isOpen: false, pageId: null, itemType: 'note', position: { x: 0, y: 0 } });
     
     switch (action) {
       case 'rename':
-        // TODO: Implement rename logic with inline editing
-        console.log('Rename:', itemType, pageId);
+        if (itemType === 'folder') {
+          const folder = folders.find(f => f.id === pageId);
+          if (folder) {
+            handleRenameFolder(pageId, folder.name);
+          }
+        } else {
+          const note = journals.find(j => j.id === pageId);
+          if (note) {
+            handleRename(pageId, note.title);
+          }
+        }
         break;
       case 'move':
-        // TODO: Implement move to folder dialog
         console.log('Move:', itemType, pageId);
         break;
       case 'trash':
@@ -641,11 +950,11 @@ const Dashboard = ({ onOpenPage, user }) => {
         try {
           setUpdateStatus({ isVisible: true, status: 'saving' });
           
-          const result = await deleteFolder(folderId);
+          const result = await deleteFolder(folderId, null);
           
           if (result.success) {
             setUpdateStatus({ isVisible: true, status: 'success' });
-            refetch(); // Refresh both notes and folders
+            refetch();
           } else {
             setUpdateStatus({ isVisible: true, status: 'error' });
           }
@@ -664,7 +973,7 @@ const Dashboard = ({ onOpenPage, user }) => {
     console.log('Drag started:', { item, type });
     setDraggedItem({ ...item, type });
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+    e.dataTransfer.setData('text/plain', '');
   };
 
   const handleDragOver = (e) => {
@@ -682,7 +991,6 @@ const Dashboard = ({ onOpenPage, user }) => {
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only clear if we're really leaving the folder area
     if (!e.currentTarget.contains(e.relatedTarget)) {
       console.log('Drag leave folder');
       setDragOverFolder(null);
@@ -704,7 +1012,13 @@ const Dashboard = ({ onOpenPage, user }) => {
         
         if (result.success) {
           setUpdateStatus({ isVisible: true, status: 'success' });
-          refetch();
+          
+          // Refresh based on current view
+          if (currentFolderId) {
+            loadFolderContents(currentFolderId);
+          } else {
+            refetch();
+          }
         } else {
           console.error('Move failed:', result.error);
           setUpdateStatus({ isVisible: true, status: 'error' });
@@ -724,23 +1038,36 @@ const Dashboard = ({ onOpenPage, user }) => {
     setDragOverFolder(null);
   };
 
-  // Filter notes based on active tab
-  const filteredJournals = journals.filter(journal => {
-    if (activeTab === 'shared') return journal.shared;
-    if (activeTab === 'owned') return !journal.shared;
-    return true; // 'all'
-  });
+  // Filter notes based on active tab AND current folder view
+  const filteredJournals = currentFolderId === null 
+    ? journals.filter(journal => {
+        // Only show notes that are NOT in any folder (folder_id is null)
+        if (journal.folder_id !== null) return false;
+        
+        if (activeTab === 'shared') return journal.shared;
+        if (activeTab === 'owned') return !journal.shared;
+        return true;
+      })
+    : []; // If inside a folder, use folderContents.notes instead
+
+  // Get display notes - either filtered journals or folder contents
+  const displayNotes = currentFolderId !== null && folderContents[currentFolderId]
+    ? folderContents[currentFolderId].notes.filter(note => {
+        if (activeTab === 'shared') return note.shared;
+        if (activeTab === 'owned') return !note.shared;
+        return true;
+      })
+    : filteredJournals;
 
   return (
     <div className="min-h-screen bg-black flex">
-      {/* Update Status Toast */}
       <UpdateStatusToast
         isVisible={updateStatus.isVisible}
         status={updateStatus.status}
         onClose={() => setUpdateStatus({ isVisible: false, status: 'saving' })}
       />
 
-      {/* Sidebar - 20% width */}
+      {/* Sidebar */}
       <motion.div 
         className="w-1/5 bg-black border-r border-gray-900 flex flex-col h-screen fixed left-0 top-0 z-10"
         initial={{ x: -50, opacity: 0 }}
@@ -781,7 +1108,7 @@ const Dashboard = ({ onOpenPage, user }) => {
           </div>
         </div>
 
-        {/* Navigation - Fixed height, no scrolling */}
+        {/* Navigation */}
         <div className="flex-1 px-3 overflow-hidden">
           {sidebarItems.map((item) => (
             <motion.button
@@ -816,7 +1143,6 @@ const Dashboard = ({ onOpenPage, user }) => {
               </button>
             </div>
 
-            {/* Pages Dropdown */}
             <AnimatePresence>
               {isPagesDropdownOpen && (
                 <motion.div
@@ -844,7 +1170,6 @@ const Dashboard = ({ onOpenPage, user }) => {
                 </div>
               </div>
             ) : (
-              // Show only first 3 journals in sidebar, no scrolling
               journals.slice(0, 3).map((journal) => (
                 <motion.div
                   key={journal.id}
@@ -883,7 +1208,7 @@ const Dashboard = ({ onOpenPage, user }) => {
           </div>
         </div>
 
-        {/* Bottom Section - Fixed at bottom with proper spacing */}
+        {/* Bottom Section */}
         <div className="p-3 border-t border-gray-900 space-y-1 bg-black flex-shrink-0">
           <button
             onClick={() => setIsUpgradeModalOpen(true)}
@@ -903,7 +1228,6 @@ const Dashboard = ({ onOpenPage, user }) => {
             <span className="text-gray-300 text-sm">Trash</span>
           </button>
           
-          {/* User Profile - Bottom */}
           <div className="relative pb-1">
             <button
               onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
@@ -917,7 +1241,6 @@ const Dashboard = ({ onOpenPage, user }) => {
               <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             
-            {/* User Dropdown */}
             <AnimatePresence>
               {isUserDropdownOpen && (
                 <motion.div
@@ -928,12 +1251,19 @@ const Dashboard = ({ onOpenPage, user }) => {
                 >
                   <div className="px-3 py-1.5 border-b border-gray-800">
                     <div className="text-xs text-white font-medium truncate">{user?.email || 'user@example.com'}</div>
-                    <div className="text-xs text-gray-400">Last saved 23 days ago</div>
+                    <div className="text-xs text-gray-400">Last saved {getLastSavedText()}</div>
                   </div>
-                  <button className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">
+                  <button  onClick={() => {
+    setIsUserDropdownOpen(false);
+    navigate('/profile-settings');
+    // Navigate to profile settings page
+  }} className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">
                     Profile Settings
                   </button>
-                  <button className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">
+                  <button   onClick={() => {
+                    setIsUserDropdownOpen(false);
+                    handleSignOut();
+                  }} className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">
                     Sign Out
                   </button>
                 </motion.div>
@@ -943,9 +1273,8 @@ const Dashboard = ({ onOpenPage, user }) => {
         </div>
       </motion.div>
 
-      {/* Main Content - 80% width */}
+      {/* Main Content */}
       <div className="w-4/5 ml-[20%] min-h-screen bg-black">
-        {/* Header */}
         <motion.header 
           className="bg-black border-b border-gray-900 sticky top-0 z-5"
           initial={{ y: -20, opacity: 0 }}
@@ -953,12 +1282,23 @@ const Dashboard = ({ onOpenPage, user }) => {
         >
           <div className="px-8 py-6 flex items-center justify-between">
             <div className="flex items-center space-x-4">
+              {currentFolderId !== null && (
+                <button
+                  onClick={handleBackToRoot}
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <ChevronRight className="w-6 h-6 text-purple-400 transform rotate-180" />
+                </button>
+              )}
               <BookOpen className="w-7 h-7 text-purple-400" />
-              <h1 className="text-3xl font-bold text-white">Home</h1>
+              <h1 className="text-3xl font-bold text-white">
+                {currentFolderId !== null && folderContents[currentFolderId]?.folder 
+                  ? folderContents[currentFolderId].folder.name 
+                  : 'Home'}
+              </h1>
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Tab Filters */}
               <div className="flex bg-gray-900 rounded-xl p-1 border border-gray-800">
                 {[
                   { key: 'all', label: 'All' },
@@ -979,7 +1319,6 @@ const Dashboard = ({ onOpenPage, user }) => {
                 ))}
               </div>
 
-              {/* View Toggle */}
               <div className="flex bg-gray-900 rounded-xl p-1 border border-gray-800">
                 <button
                   onClick={() => setViewMode('grid')}
@@ -1009,9 +1348,7 @@ const Dashboard = ({ onOpenPage, user }) => {
           </div>
         </motion.header>
 
-        {/* Content */}
         <div className="p-8 min-h-screen overflow-y-auto">
-          {/* Error State */}
           {error && (
             <div className="bg-red-900/20 border border-red-500 rounded-xl p-4 mb-6">
               <p className="text-red-400">{error}</p>
@@ -1024,7 +1361,6 @@ const Dashboard = ({ onOpenPage, user }) => {
             </div>
           )}
 
-          {/* AI Suggestions */}
           {aiSuggestions.length > 0 && (
             <motion.div
               className="mb-8 p-4 bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-xl border border-purple-500/20"
@@ -1042,84 +1378,191 @@ const Dashboard = ({ onOpenPage, user }) => {
             </motion.div>
           )}
 
-          {/* Folders Section */}
-          <motion.section 
-            className="mb-12"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
-                <span>Folders</span>
-                <span className="bg-gray-900 text-sm px-3 py-1 rounded-full border border-gray-800">
-                  {folders?.length || 0}
-                </span>
-              </h2>
-            </div>
+          {/* Folders Section - Only show if at root level */}
+          {currentFolderId === null && (
+            <motion.section 
+              className="mb-12"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
+                  <span>Folders</span>
+                  <span className="bg-gray-900 text-sm px-3 py-1 rounded-full border border-gray-800">
+                    {folders?.length || 0}
+                  </span>
+                </h2>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {/* Create Folder */}
-              <motion.button
-                onClick={() => setIsFolderModalOpen(true)}
-                className="h-40 bg-gray-900 border-2 border-dashed border-purple-500/50 rounded-2xl hover:border-purple-500 hover:bg-gray-800 transition-all duration-300 flex flex-col items-center justify-center space-y-3 group"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <FolderPlus className="w-10 h-10 text-gray-400 group-hover:text-purple-400 transition-colors" />
-                <span className="text-gray-400 group-hover:text-purple-400 transition-colors font-medium">
-                  Create Folder
-                </span>
-              </motion.button>
-
-              {/* Existing Folders */}
-              {folders?.map((folder) => (
-                <motion.div
-                  key={folder.id}
-                  className={`h-40 bg-gray-900 rounded-2xl border transition-all duration-300 cursor-pointer group p-6 ${
-                    dragOverFolder === folder.id 
-                      ? 'border-purple-500 bg-purple-900/20 scale-105' 
-                      : 'border-gray-800 hover:bg-gray-800'
-                  }`}
-                  whileHover={{ scale: dragOverFolder === folder.id ? 1.05 : 1.02 }}
-                  onDragOver={handleDragOver}
-                  onDragEnter={(e) => handleDragEnter(e, folder.id)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, folder.id)}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <motion.button
+                  onClick={() => setIsFolderModalOpen(true)}
+                  className="h-40 bg-gray-900 border-2 border-dashed border-purple-500/50 rounded-2xl hover:border-purple-500 hover:bg-gray-800 transition-all duration-300 flex flex-col items-center justify-center space-y-3 group"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <div className="h-full flex flex-col">
-                    <div className="flex-1 mb-4">
-                      <div className="h-16 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl mb-4 flex items-center justify-center border border-blue-500/20">
-                        <Folder className="w-8 h-8 text-blue-400" />
+                  <FolderPlus className="w-10 h-10 text-gray-400 group-hover:text-purple-400 transition-colors" />
+                  <span className="text-gray-400 group-hover:text-purple-400 transition-colors font-medium">
+                    Create Folder
+                  </span>
+                </motion.button>
+
+                {folders?.map((folder) => (
+                  <motion.div
+                    key={folder.id}
+                    className="relative"
+                  >
+                    {/* Main Folder Card */}
+                    <motion.div
+                      onClick={() => !renamingFolderId && handleOpenFolder(folder.id)}
+                      className={`h-40 bg-gray-900 rounded-2xl border transition-all duration-300 cursor-pointer group p-6 relative ${
+                        dragOverFolder === folder.id 
+                          ? 'border-purple-500 bg-purple-900/20 scale-105' 
+                          : 'border-gray-800 hover:bg-gray-800'
+                      } ${renamingFolderId === folder.id ? 'ring-2 ring-purple-500' : ''}`}
+                      whileHover={{ scale: renamingFolderId !== folder.id && dragOverFolder !== folder.id ? 1.02 : 1 }}
+                      onDragOver={handleDragOver}
+                      onDragEnter={(e) => handleDragEnter(e, folder.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, folder.id)}
+                    >
+                      <div className="h-full flex flex-col">
+                        <div className="flex-1 mb-4">
+                          <div className="h-16 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl mb-4 flex items-center justify-center border border-blue-500/20 relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFolderExpansion(folder.id);
+                              }}
+                              className="absolute top-2 left-2 p-1.5 hover:bg-gray-800 rounded-lg transition-colors z-10"
+                            >
+                              {expandedFolders.has(folder.id) ? (
+                                <ChevronDown className="w-4 h-4 text-blue-400" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-blue-400" />
+                              )}
+                            </button>
+                            <Folder className="w-8 h-8 text-blue-400" />
+                          </div>
+                          
+                          {renamingFolderId === folder.id ? (
+                            <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={renameFolderName}
+                                onChange={(e) => {
+                                  setRenameFolderName(e.target.value);
+                                  if (titleError) setTitleError('');
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleRenameFolderSubmit();
+                                  } else if (e.key === 'Escape') {
+                                    setRenamingFolderId(null);
+                                    setRenameFolderName('');
+                                    setTitleError('');
+                                  }
+                                }}
+                                className="w-full px-2 py-1 bg-gray-800 border border-purple-500 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                autoFocus
+                              />
+                              {titleError && (
+                                <p className="text-red-400 text-xs">{titleError}</p>
+                              )}
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={handleRenameFolderSubmit}
+                                  className="flex-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 rounded text-white text-xs font-medium transition-colors"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRenamingFolderId(null);
+                                    setRenameFolderName('');
+                                    setTitleError('');
+                                  }}
+                                  className="flex-1 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs font-medium transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <h3 className="font-semibold text-white truncate text-lg">{folder.name}</h3>
+                              <p className="text-sm text-gray-400">
+                                {folder.note_count || 0} notes
+                              </p>
+                            </>
+                          )}
+                        </div>
+                        
+                        {!renamingFolderId && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">{folder.created_at}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePageActions(e, folder.id, 'menu','folder');
+
+                                  }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-gray-800 rounded-lg"
+                            >
+                              <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <h3 className="font-semibold text-white truncate text-lg">{folder.name}</h3>
-                      <p className="text-sm text-gray-400">
-                        {folder.note_count || 0} notes
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">{folder.created_at}</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePageActions(e, folder.id, 'menu');
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-gray-800 rounded-lg"
-                      >
-                        <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Drop indicator */}
-                  {dragOverFolder === folder.id && draggedItem && (
-                    <div className="absolute inset-0 border-2 border-purple-500 border-dashed rounded-2xl bg-purple-500/10 flex items-center justify-center pointer-events-none">
-                      <div className="text-purple-400 font-medium">Drop here</div>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
+                      
+                      {dragOverFolder === folder.id && draggedItem && (
+                        <div className="absolute inset-0 border-2 border-purple-500 border-dashed rounded-2xl bg-purple-500/10 flex items-center justify-center pointer-events-none">
+                          <div className="text-purple-400 font-medium">Drop here</div>
+                        </div>
+                      )}
+                    </motion.div>
+
+                    {/* Expanded Folder Contents */}
+                    <AnimatePresence>
+                      {expandedFolders.has(folder.id) && folderContents[folder.id] && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-2 ml-6 pl-4 border-l-2 border-gray-800 space-y-2"
+                        >
+                          {folderContents[folder.id].notes?.map((note) => (
+                            <motion.div
+                              key={note.id}
+                              onClick={() => onOpenPage(note.id)}
+                              className="bg-gray-800 rounded-lg p-3 hover:bg-gray-700 cursor-pointer transition-colors group flex items-center space-x-3"
+                              whileHover={{ scale: 1.01 }}
+                            >
+                              <FileText className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                              <span className="text-white text-sm flex-1 truncate">{note.title}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePageActions(e, note.id, 'menu', 'note');
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                              </button>
+                            </motion.div>
+                          ))}
+                          {(!folderContents[folder.id].notes || folderContents[folder.id].notes.length === 0) && (
+                            <div className="text-gray-500 text-sm italic p-3">No notes in this folder</div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.section>
+          )}
 
           {/* Journals Section */}
           <motion.section
@@ -1131,23 +1574,20 @@ const Dashboard = ({ onOpenPage, user }) => {
               <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
                 <span>Journals</span>
                 <span className="bg-gray-900 text-sm px-3 py-1 rounded-full border border-gray-800">
-                  {filteredJournals.length}
+                  {displayNotes.length}
                 </span>
               </h2>
             </div>
 
-            {/* Loading State */}
-            {loading && (
+            {(loading || loadingFolder) && (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
                 <p className="text-gray-400 mt-2">Loading your journals...</p>
               </div>
             )}
 
-            {/* Content Grid/List */}
-            {!loading && (
+            {!loading && !loadingFolder && (
               <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' : 'space-y-4'}>
-                {/* Create Journal */}
                 <motion.button
                   onClick={() => setIsCreateModalOpen(true)}
                   className={`bg-gray-900 border-2 border-dashed border-purple-500/50 rounded-2xl hover:border-purple-500 hover:bg-gray-800 transition-all duration-300 flex items-center justify-center group ${
@@ -1162,8 +1602,7 @@ const Dashboard = ({ onOpenPage, user }) => {
                   </span>
                 </motion.button>
 
-                {/* Existing Journals */}
-                {filteredJournals.map((journal, index) => (
+                {displayNotes.map((journal, index) => (
                   <motion.div
                     key={journal.id}
                     className={`bg-gray-900 rounded-2xl hover:bg-gray-800 transition-all duration-300 cursor-pointer group border border-gray-800 ${
@@ -1237,8 +1676,7 @@ const Dashboard = ({ onOpenPage, user }) => {
               </div>
             )}
 
-            {/* Empty State */}
-            {!loading && filteredJournals.length === 0 && (
+            {!loading && !loadingFolder && displayNotes.length === 0 && (
               <motion.div
                 className="text-center py-16"
                 initial={{ opacity: 0 }}
@@ -1246,13 +1684,19 @@ const Dashboard = ({ onOpenPage, user }) => {
                 transition={{ delay: 0.3 }}
               >
                 <Sparkles className="w-20 h-20 text-gray-600 mx-auto mb-6" />
-                <h3 className="text-2xl font-bold text-gray-300 mb-3">Ready to start learning?</h3>
-                <p className="text-gray-400 mb-8 text-lg">Create your first journal and let our AI tutor help you learn faster</p>
+                <h3 className="text-2xl font-bold text-gray-300 mb-3">
+                  {currentFolderId !== null ? 'This folder is empty' : 'Ready to start learning?'}
+                </h3>
+                <p className="text-gray-400 mb-8 text-lg">
+                  {currentFolderId !== null 
+                    ? 'Create your first note in this folder or drag notes here'
+                    : 'Create your first journal and let our AI tutor help you learn faster'}
+                </p>
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
                   className="px-8 py-4 bg-black border-2 border-purple-600 rounded-xl hover:bg-purple-600 transition-all duration-300 transform hover:scale-105 font-semibold text-lg shadow-lg text-white"
                 >
-                  Create Your First Journal
+                  {currentFolderId !== null ? 'Create Note in Folder' : 'Create Your First Journal'}
                 </button>
               </motion.div>
             )}
@@ -1282,7 +1726,7 @@ const Dashboard = ({ onOpenPage, user }) => {
 
       <PageActionsDropdown
         isOpen={pageActionsDropdown.isOpen}
-        onClose={() => setPageActionsDropdown({ isOpen: false, pageId: null, position: { x: 0, y: 0 } })}
+        onClose={() => setPageActionsDropdown({ isOpen: false, pageId: null, itemType: 'note', position: { x: 0, y: 0 } })}
         onRename={() => handlePageAction('rename', pageActionsDropdown.pageId, pageActionsDropdown.itemType || 'note')}
         onMove={() => handlePageAction('move', pageActionsDropdown.pageId, pageActionsDropdown.itemType || 'note')}
         onTrash={() => handlePageAction('trash', pageActionsDropdown.pageId, pageActionsDropdown.itemType || 'note')}
@@ -1296,6 +1740,37 @@ const Dashboard = ({ onOpenPage, user }) => {
         title={confirmationModal.title}
         message={confirmationModal.message}
         type={confirmationModal.type}
+      />
+
+      {/* Title Input Modal for Creating Notes */}
+      <TitleInputModal
+        isOpen={isTitleModalOpen}
+        onClose={() => {
+          setIsTitleModalOpen(false);
+          setNewNoteTitle('');
+          setTitleError('');
+        }}
+        onSubmit={handleCreateNoteWithTitle}
+        title={newNoteTitle}
+        setTitle={setNewNoteTitle}
+        error={titleError}
+        setError={setTitleError}
+        submitLabel="Create Note"
+      />
+
+      {/* Title Input Modal for Renaming Notes */}
+      <TitleInputModal
+        isOpen={renameModal.isOpen}
+        onClose={() => {
+          setRenameModal({ isOpen: false, noteId: null, currentTitle: '' });
+          setTitleError('');
+        }}
+        onSubmit={handleRenameSubmit}
+        title={renameModal.currentTitle}
+        setTitle={(newTitle) => setRenameModal({ ...renameModal, currentTitle: newTitle })}
+        error={titleError}
+        setError={setTitleError}
+        submitLabel="Rename"
       />
     </div>
   );

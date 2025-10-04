@@ -26,16 +26,20 @@ export function useAI() {
       setLoading(true);
       setError(null);
       
+      // Extract noteIds from context, pass null if empty
+      const noteIds = context.noteIds && context.noteIds.length > 0 ? context.noteIds : null;
+      
+      // Call aiService with correct parameters
       const response = await aiService.askQuestion(
         question, 
-        context.noteIds, 
-        context.includeRecent
+        noteIds,  // Will be null if no valid noteIds
+        context.includeRecent !== false  // Default to true
       );
       
       return { success: true, ...response };
     } catch (err) {
       setError(err.message);
-      return { success: false, error: err.message };
+      return { success: false, error: err.message, answer: '' };
     } finally {
       setLoading(false);
     }

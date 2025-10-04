@@ -1,5 +1,5 @@
 // src/hooks/useAuth.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import authService from '../services/authService';
 
 export function useAuth() {
@@ -7,30 +7,76 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    initializeAuth();
-  }, []);
-
-  const initializeAuth = async () => {
+  const initializeAuth = useCallback(async () => {
     try {
       setLoading(true);
       await authService.initialize();
       const currentUser = authService.getCurrentUser();
+      console.log('Auth initialized, user:', currentUser);
       setUser(currentUser);
     } catch (err) {
+      console.error('Auth initialization error:', err);
       setError(err.message);
+      setUser(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
+  // Listen for auth state changes from authService
+  useEffect(() => {
+    const handleAuthStateChange = (event) => {
+      console.log('Auth state changed:', event.detail);
+      const { user: newUser, isAuthenticated } = event.detail;
+      
+      if (isAuthenticated && newUser) {
+        setUser(newUser);
+      } else {
+        setUser(null);
+      }
+    };
+
+    window.addEventListener('authStateChanged', handleAuthStateChange);
+    
+    return () => {
+      window.removeEventListener('authStateChanged', handleAuthStateChange);
+    };
+  }, []);
+
+  // Listen for user profile updates
+  useEffect(() => {
+    const handleUserUpdate = () => {
+      console.log('User profile updated');
+      const storedUser = localStorage.getItem('noteflow_user');
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        } catch (err) {
+          console.error('Error parsing stored user:', err);
+        }
+      }
+    };
+
+    window.addEventListener('userUpdated', handleUserUpdate);
+    
+    return () => {
+      window.removeEventListener('userUpdated', handleUserUpdate);
+    };
+  }, []);
 
   const login = async (credentials) => {
     try {
       setLoading(true);
       setError(null);
       const result = await authService.login(credentials);
+      
       if (result.success) {
-        setUser(result.user);
+        // User state will be updated by authStateChanged event
         return { success: true, user: result.user };
       } else {
         setError(result.error);
@@ -46,11 +92,26 @@ export function useAuth() {
 
   const logout = async () => {
     try {
+      console.log('useAuth: Calling authService.logout()');
       await authService.logout();
-      setUser(null);
-      setError(null);
+      // User state will be updated by authStateChanged event
+      console.log('useAuth: Logout complete');
     } catch (err) {
       console.error('Logout error:', err);
+      // Force clear state even on error
+      setUser(null);
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      console.log('Manually refreshing user data...');
+      await authService.initialize();
+      const currentUser = authService.getCurrentUser();
+      setUser(currentUser);
+      console.log('User data refreshed:', currentUser);
+    } catch (err) {
+      console.error('Refresh user error:', err);
     }
   };
 
@@ -58,9 +119,10 @@ export function useAuth() {
     user,
     loading,
     error,
-    isAuthenticated: authService.isAuthenticated(),
+    isAuthenticated: !!user,
     login,
     logout,
+    refreshUser,
     updateProfile: authService.updateUserProfile.bind(authService)
   };
 }

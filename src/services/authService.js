@@ -1,10 +1,18 @@
-// src/services/authService.js - COMPLETE FIXED VERSION
+// src/services/authService.js - COMPLETE FIXED VERSION WITH EVENT DISPATCHING
 import apiClient from '../utils/apiClient';
 
 class AuthService {
   constructor() {
     this.user = null;
     this.isInitialized = false;
+  }
+
+  // Dispatch auth state change event
+  dispatchAuthChange(user, isAuthenticated) {
+    console.log('Dispatching auth state change:', { user, isAuthenticated });
+    window.dispatchEvent(new CustomEvent('authStateChanged', { 
+      detail: { user, isAuthenticated } 
+    }));
   }
 
   // Initialize auth state from stored tokens
@@ -41,6 +49,9 @@ class AuthService {
         localStorage.setItem('noteflow_token', response.access_token);
         localStorage.setItem('noteflow_user', JSON.stringify(response.user));
         this.user = response.user;
+        
+        // Dispatch auth state change event
+        this.dispatchAuthChange(response.user, true);
         
         return { 
           success: true, 
@@ -141,6 +152,8 @@ class AuthService {
       console.error('Logout error:', error);
     } finally {
       this.clearAuth();
+      // Dispatch auth state change event for logout
+      this.dispatchAuthChange(null, false);
     }
   }
 
@@ -178,6 +191,10 @@ class AuthService {
         const response = await apiClient.updateProfile(updates);
         this.user = response;
         localStorage.setItem('noteflow_user', JSON.stringify(response));
+        
+        // Dispatch user update event (for profile changes)
+        window.dispatchEvent(new Event('userUpdated'));
+        
         return response;
       } else {
         throw new Error('No valid authentication token');

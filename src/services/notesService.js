@@ -13,10 +13,8 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Get from backend
         const response = await apiClient.getNotes(params);
         
-        // Transform backend notes to match frontend journal format
         const transformedNotes = response.notes?.map(note => ({
           id: note.id.toString(),
           title: note.title,
@@ -45,12 +43,10 @@ class NotesService {
           hasPrev: response.has_prev || false
         };
       } else {
-        // Use localStorage for demo mode
         return this.getLocalNotes(params);
       }
     } catch (error) {
       console.error('Failed to get notes:', error);
-      // Fallback to localStorage
       return this.getLocalNotes(params);
     }
   }
@@ -61,10 +57,8 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Get from backend
         const response = await apiClient.getNote(noteId);
         
-        // Transform backend note to frontend format
         return {
           id: response.id.toString(),
           title: response.title,
@@ -84,12 +78,11 @@ class NotesService {
           folder_id: response.folder_id || null
         };
       } else {
-        // Get from localStorage
         return this.getLocalNote(noteId);
       }
     } catch (error) {
       console.error('Failed to get note:', error);
-      return this.getLocalNote(noteId);
+      throw error;
     }
   }
 
@@ -99,10 +92,9 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Create via backend
         const backendData = {
-          title: noteData.title,
-          content: noteData.content,
+          title: noteData.title || 'New Journal',
+          content: noteData.content || '',
           summary: noteData.summary || null,
           tags: noteData.tags || [],
           category: noteData.category || 'General',
@@ -113,34 +105,34 @@ class NotesService {
         };
         
         const response = await apiClient.createNote(backendData);
+        const responseNoteData = response.note || response;
         
-        // Transform response to frontend format
-        return {
-          id: response.note.id.toString(),
-          title: response.note.title,
-          content: response.note.content,
-          date: new Date(response.note.created_at).toLocaleDateString('en-US', { 
+        const transformedNote = {
+          id: responseNoteData.id.toString(),
+          title: responseNoteData.title,
+          content: responseNoteData.content,
+          date: new Date(responseNoteData.created_at).toLocaleDateString('en-US', { 
             year: 'numeric', 
             month: 'short', 
             day: 'numeric' 
           }),
-          shared: response.note.is_public || false,
-          createdAt: response.note.created_at,
-          updatedAt: response.note.updated_at,
-          tags: response.note.tags || [],
-          category: response.note.category || 'General',
-          priority: response.note.priority || 'medium',
-          isFavorite: response.note.is_favorite || false,
-          folder_id: response.note.folder_id || null
+          shared: responseNoteData.is_public || false,
+          createdAt: responseNoteData.created_at,
+          updatedAt: responseNoteData.updated_at,
+          tags: responseNoteData.tags || [],
+          category: responseNoteData.category || 'General',
+          priority: responseNoteData.priority || 'medium',
+          isFavorite: responseNoteData.is_favorite || false,
+          folder_id: responseNoteData.folder_id || null
         };
+        
+        return transformedNote;
       } else {
-        // Create locally
         return this.createLocalNote(noteData);
       }
     } catch (error) {
       console.error('Failed to create note:', error);
-      // Fallback to local creation
-      return this.createLocalNote(noteData);
+      throw error;
     }
   }
 
@@ -150,7 +142,6 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Update via backend
         const backendData = {
           title: noteData.title,
           content: noteData.content,
@@ -164,34 +155,70 @@ class NotesService {
         };
         
         const response = await apiClient.updateNote(noteId, backendData);
+        const responseNoteData = response.note || response;
         
-        // Transform response to frontend format
-        return {
-          id: response.note.id.toString(),
-          title: response.note.title,
-          content: response.note.content,
-          date: new Date(response.note.updated_at).toLocaleDateString('en-US', { 
+        const transformedNote = {
+          id: responseNoteData.id.toString(),
+          title: responseNoteData.title,
+          content: responseNoteData.content,
+          date: new Date(responseNoteData.updated_at).toLocaleDateString('en-US', { 
             year: 'numeric', 
             month: 'short', 
             day: 'numeric' 
           }),
-          shared: response.note.is_public || false,
-          createdAt: response.note.created_at,
-          updatedAt: response.note.updated_at,
-          tags: response.note.tags || [],
-          category: response.note.category || 'General',
-          priority: response.note.priority || 'medium',
-          isFavorite: response.note.is_favorite || false,
-          folder_id: response.note.folder_id || null
+          shared: responseNoteData.is_public || false,
+          createdAt: responseNoteData.created_at,
+          updatedAt: responseNoteData.updated_at,
+          tags: responseNoteData.tags || [],
+          category: responseNoteData.category || 'General',
+          priority: responseNoteData.priority || 'medium',
+          isFavorite: responseNoteData.is_favorite || false,
+          folder_id: responseNoteData.folder_id || null
         };
+        
+        return transformedNote;
       } else {
-        // Update locally
         return this.updateLocalNote(noteId, noteData);
       }
     } catch (error) {
       console.error('Failed to update note:', error);
-      // Fallback to local update
-      return this.updateLocalNote(noteId, noteData);
+      throw error;
+    }
+  }
+
+  // Rename note
+  async renameNote(noteId, newTitle) {
+    try {
+      const token = localStorage.getItem('noteflow_token');
+      
+      if (token && !token.startsWith('demo_')) {
+        const response = await apiClient.renameNote(noteId, newTitle);
+        const responseNoteData = response.note || response;
+        
+        return {
+          id: responseNoteData.id.toString(),
+          title: responseNoteData.title,
+          content: responseNoteData.content,
+          date: new Date(responseNoteData.updated_at).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          }),
+          shared: responseNoteData.is_public || false,
+          createdAt: responseNoteData.created_at,
+          updatedAt: responseNoteData.updated_at,
+          tags: responseNoteData.tags || [],
+          category: responseNoteData.category || 'General',
+          priority: responseNoteData.priority || 'medium',
+          isFavorite: responseNoteData.is_favorite || false,
+          folder_id: responseNoteData.folder_id || null
+        };
+      } else {
+        return this.updateLocalNote(noteId, { title: newTitle });
+      }
+    } catch (error) {
+      console.error('Failed to rename note:', error);
+      throw error;
     }
   }
 
@@ -201,17 +228,14 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Delete via backend
         await apiClient.deleteNote(noteId, permanent);
         return true;
       } else {
-        // Delete locally
         return this.deleteLocalNote(noteId);
       }
     } catch (error) {
       console.error('Failed to delete note:', error);
-      // Fallback to local deletion
-      return this.deleteLocalNote(noteId);
+      throw error;
     }
   }
 
@@ -221,10 +245,8 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Search via backend
         const response = await apiClient.searchNotes(query, limit);
         
-        // Transform results to frontend format
         return response.map(note => ({
           id: note.id.toString(),
           title: note.title,
@@ -244,7 +266,6 @@ class NotesService {
           folder_id: note.folder_id || null
         }));
       } else {
-        // Search locally
         return this.searchLocalNotes(query);
       }
     } catch (error) {
@@ -259,10 +280,8 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Get stats from backend
         return await apiClient.getNoteStats();
       } else {
-        // Calculate local stats
         return this.getLocalStats();
       }
     } catch (error) {
@@ -279,10 +298,8 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Get from backend
         const response = await apiClient.getFolders();
         
-        // Transform backend folders to frontend format
         return response.map(folder => ({
           id: folder.id.toString(),
           name: folder.name,
@@ -296,12 +313,54 @@ class NotesService {
           updated_at: folder.updated_at
         }));
       } else {
-        // Get from localStorage
         return this.getLocalFolders();
       }
     } catch (error) {
       console.error('Failed to get folders:', error);
       return this.getLocalFolders();
+    }
+  }
+
+  // Get folder contents
+  async getFolderContents(folderId) {
+    try {
+      const token = localStorage.getItem('noteflow_token');
+      
+      if (token && !token.startsWith('demo_')) {
+        const response = await apiClient.getFolderContents(folderId);
+        
+        const transformedNotes = response.notes?.map(note => ({
+          id: note.id.toString(),
+          title: note.title,
+          content: note.content,
+          date: new Date(note.created_at).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          }),
+          shared: note.is_public || false,
+          createdAt: note.created_at,
+          updatedAt: note.updated_at,
+          tags: note.tags || [],
+          category: note.category || 'General',
+          priority: note.priority || 'medium',
+          isFavorite: note.is_favorite || false,
+          folder_id: note.folder_id || null
+        })) || [];
+        
+        return {
+          folder: response.folder,
+          notes: transformedNotes,
+          subfolders: response.subfolders || [],
+          total_notes: response.total_notes || 0,
+          total_subfolders: response.total_subfolders || 0
+        };
+      } else {
+        return this.getLocalFolderContents(folderId);
+      }
+    } catch (error) {
+      console.error('Failed to get folder contents:', error);
+      throw error;
     }
   }
 
@@ -311,35 +370,32 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Create via backend
         const backendData = {
           name: folderData.name,
           parent_id: folderData.parent_id || null
         };
         
         const response = await apiClient.createFolder(backendData);
+        const responseFolderData = response.folder || response;
         
-        // Transform response to frontend format
         return {
-          id: response.folder.id.toString(),
-          name: response.folder.name,
-          parent_id: response.folder.parent_id,
+          id: responseFolderData.id.toString(),
+          name: responseFolderData.name,
+          parent_id: responseFolderData.parent_id,
           note_count: 0,
-          created_at: new Date(response.folder.created_at).toLocaleDateString('en-US', { 
+          created_at: new Date(responseFolderData.created_at).toLocaleDateString('en-US', { 
             year: 'numeric', 
             month: 'short', 
             day: 'numeric' 
           }),
-          updated_at: response.folder.updated_at
+          updated_at: responseFolderData.updated_at
         };
       } else {
-        // Create locally
         return this.createLocalFolder(folderData);
       }
     } catch (error) {
       console.error('Failed to create folder:', error);
-      // Fallback to local creation
-      return this.createLocalFolder(folderData);
+      throw error;
     }
   }
 
@@ -349,50 +405,74 @@ class NotesService {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Update via backend
         const response = await apiClient.updateFolder(folderId, folderData);
+        const responseFolderData = response.folder || response;
         
-        // Transform response to frontend format
         return {
-          id: response.folder.id.toString(),
-          name: response.folder.name,
-          parent_id: response.folder.parent_id,
-          note_count: response.folder.note_count || 0,
-          created_at: new Date(response.folder.created_at).toLocaleDateString('en-US', { 
+          id: responseFolderData.id.toString(),
+          name: responseFolderData.name,
+          parent_id: responseFolderData.parent_id,
+          note_count: responseFolderData.note_count || 0,
+          created_at: new Date(responseFolderData.created_at).toLocaleDateString('en-US', { 
             year: 'numeric', 
             month: 'short', 
             day: 'numeric' 
           }),
-          updated_at: response.folder.updated_at
+          updated_at: responseFolderData.updated_at
         };
       } else {
-        // Update locally
         return this.updateLocalFolder(folderId, folderData);
       }
     } catch (error) {
       console.error('Failed to update folder:', error);
-      // Fallback to local update
-      return this.updateLocalFolder(folderId, folderData);
+      throw error;
     }
   }
 
-  // Delete folder
-  async deleteFolder(folderId) {
+  // Rename folder
+  async renameFolder(folderId, newName) {
     try {
       const token = localStorage.getItem('noteflow_token');
       
       if (token && !token.startsWith('demo_')) {
-        // Delete via backend
-        await apiClient.deleteFolder(folderId);
+        const response = await apiClient.renameFolder(folderId, newName);
+        const responseFolderData = response.folder || response;
+        
+        return {
+          id: responseFolderData.id.toString(),
+          name: responseFolderData.name,
+          parent_id: responseFolderData.parent_id,
+          note_count: responseFolderData.note_count || 0,
+          created_at: new Date(responseFolderData.created_at).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          }),
+          updated_at: responseFolderData.updated_at
+        };
+      } else {
+        return this.updateLocalFolder(folderId, { name: newName });
+      }
+    } catch (error) {
+      console.error('Failed to rename folder:', error);
+      throw error;
+    }
+  }
+
+  // Delete folder
+  async deleteFolder(folderId, moveNotesTo = null) {
+    try {
+      const token = localStorage.getItem('noteflow_token');
+      
+      if (token && !token.startsWith('demo_')) {
+        await apiClient.deleteFolder(folderId, moveNotesTo);
         return true;
       } else {
-        // Delete locally
         return this.deleteLocalFolder(folderId);
       }
     } catch (error) {
       console.error('Failed to delete folder:', error);
-      // Fallback to local deletion
-      return this.deleteLocalFolder(folderId);
+      throw error;
     }
   }
 
@@ -400,19 +480,17 @@ class NotesService {
   async moveNoteToFolder(noteId, folderId) {
     try {
       const token = localStorage.getItem('noteflow_token');
-      
-      if (token && !token.startsWith('demo_')) {
-        // Move via backend
+       
+       if (token && !token.startsWith('demo_')) {
         const response = await apiClient.updateNote(noteId, { folder_id: folderId });
-        return response;
+        return { success: true, note: response.note || response };
       } else {
-        // Move locally
-        return this.moveLocalNoteToFolder(noteId, folderId);
+        const result = this.moveLocalNoteToFolder(noteId, folderId);
+        return { success: result };
       }
     } catch (error) {
       console.error('Failed to move note to folder:', error);
-      // Fallback to local move
-      return this.moveLocalNoteToFolder(noteId, folderId);
+      throw error;
     }
   }
 
@@ -429,7 +507,6 @@ class NotesService {
       })
     }));
 
-    // Apply search filter
     if (params.search) {
       const searchTerm = params.search.toLowerCase();
       notes = notes.filter(note => 
@@ -438,7 +515,6 @@ class NotesService {
       );
     }
 
-    // Apply pagination
     const page = params.page || 1;
     const perPage = params.per_page || 20;
     const start = (page - 1) * perPage;
@@ -468,7 +544,7 @@ class NotesService {
         })
       };
     }
-    return null;
+    throw new Error('Note not found');
   }
 
   createLocalNote(noteData) {
@@ -522,7 +598,7 @@ class NotesService {
       return updatedNote;
     }
     
-    return null;
+    throw new Error('Note not found');
   }
 
   deleteLocalNote(noteId) {
@@ -532,7 +608,7 @@ class NotesService {
       localStorage.setItem('noteflow_journals', JSON.stringify(journals));
       return true;
     }
-    return false;
+    throw new Error('Note not found');
   }
 
   searchLocalNotes(query) {
@@ -577,6 +653,33 @@ class NotesService {
     return folders ? JSON.parse(folders) : [];
   }
 
+  getLocalFolderContents(folderId) {
+    const journals = this.getJournals();
+    const folders = this.getLocalFolders();
+    
+    const notes = Object.values(journals)
+      .filter(note => note.folder_id === folderId)
+      .map(note => ({
+        ...note,
+        date: new Date(note.createdAt || Date.now()).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        })
+      }));
+    
+    const subfolders = folders.filter(f => f.parent_id === folderId);
+    const folder = folderId ? folders.find(f => f.id === folderId) : null;
+    
+    return {
+      folder,
+      notes,
+      subfolders,
+      total_notes: notes.length,
+      total_subfolders: subfolders.length
+    };
+  }
+
   createLocalFolder(folderData) {
     const id = Date.now().toString();
     const folder = {
@@ -616,7 +719,7 @@ class NotesService {
       return updatedFolder;
     }
     
-    return null;
+    throw new Error('Folder not found');
   }
 
   deleteLocalFolder(folderId) {
@@ -627,7 +730,7 @@ class NotesService {
       localStorage.setItem('noteflow_folders', JSON.stringify(filteredFolders));
       return true;
     }
-    return false;
+    throw new Error('Folder not found');
   }
 
   moveLocalNoteToFolder(noteId, folderId) {
@@ -637,7 +740,7 @@ class NotesService {
       localStorage.setItem('noteflow_journals', JSON.stringify(journals));
       return true;
     }
-    return false;
+    throw new Error('Note not found');
   }
 
   getJournals() {

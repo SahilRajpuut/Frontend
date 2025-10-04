@@ -93,3 +93,184 @@
   .no-print { display: none !important; }
   .print-only { display: block !important; }
 }
+
+
+.ProseMirror {
+  outline: none;
+  min-height: 600px;
+  color: white;
+  padding: 1rem;
+}
+
+.ProseMirror > * + * {
+  margin-top: 0.75em;
+}
+
+.ProseMirror p {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+/* Headings */
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+  color: white;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+  color: white;
+}
+
+.ProseMirror h3 {
+  font-size: 1.17em;
+  font-weight: bold;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  color: white;
+}
+
+/* Text formatting */
+.ProseMirror strong {
+  font-weight: bold;
+  color: white;
+}
+
+.ProseMirror em {
+  font-style: italic;
+}
+
+.ProseMirror u {
+  text-decoration: underline;
+}
+
+/* Highlight */
+.ProseMirror mark {
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  background-color: yellow;
+  color: black;
+}
+
+.ProseMirror mark[data-color] {
+  background-color: var(--highlight-color);
+}
+
+/* Code */
+.ProseMirror code {
+  background-color: rgba(156, 163, 175, 0.2);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #10b981;
+}
+
+.ProseMirror pre {
+  background-color: rgba(31, 41, 55, 0.8);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1em 0;
+  border: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+.ProseMirror pre code {
+  background-color: transparent;
+  padding: 0;
+  color: #e5e7eb;
+}
+
+/* Lists */
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5rem;
+  margin: 1em 0;
+}
+
+.ProseMirror li {
+  margin: 0.25em 0;
+  color: white;
+}
+
+.ProseMirror ul li {
+  list-style-type: disc;
+}
+
+.ProseMirror ol li {
+  list-style-type: decimal;
+}
+
+/* Blockquote */
+.ProseMirror blockquote {
+  border-left: 3px solid #8b5cf6;
+  padding-left: 1rem;
+  margin: 1em 0;
+  color: #d1d5db;
+  font-style: italic;
+}
+
+/* Links */
+.ProseMirror a {
+  color: #a78bfa;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ProseMirror a:hover {
+  color: #c4b5fd;
+}
+
+/* Placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #6b7280;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Selection */
+.ProseMirror ::selection {
+  background-color: rgba(139, 92, 246, 0.3);
+}
+
+/* Focus */
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* Horizontal rule */
+.ProseMirror hr {
+  border: none;
+  border-top: 2px solid rgba(75, 85, 99, 0.5);
+  margin: 2em 0;
+}
+
+/* Tables (if you add table support later) */
+.ProseMirror table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  overflow: hidden;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  padding: 0.5em;
+  vertical-align: top;
+  color: white;
+}
+
+.ProseMirror table th {
+  background-color: rgba(31, 41, 55, 0.5);
+  font-weight: bold;
+}
